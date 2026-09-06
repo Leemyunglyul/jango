@@ -1297,6 +1297,14 @@
         font-family: "IBM Plex Mono", monospace;
         font-variant-numeric: tabular-nums;
       }
+      .hold .mm {
+        display: block;
+        margin-top: 2px;
+        color: var(--ink3);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
 
       /* 시트 안에서 종목을 바로 고치는 줄 — 값을 치면 그 자리에서 평가금이 다시 계산된다 */
       .holdedit {
@@ -1361,6 +1369,31 @@
       .holdedit .hgrid input:focus {
         outline: none;
         border-color: var(--ink3);
+      }
+      .holdedit .hquote {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 6px;
+        align-items: end;
+        margin-top: 7px;
+      }
+      .holdedit .hquote label {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 10.5px;
+        color: var(--ink3);
+        font-weight: 500;
+      }
+      .holdedit .hquote input {
+        background: var(--surface2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 7px 8px;
+        width: 100%;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+        text-transform: uppercase;
       }
       .holdedit .hpl {
         font-size: 11.5px;
@@ -1941,7 +1974,7 @@
         },
       };
       /* 자산 항목: {id,name,group,value(평가액),principal(누적 납입원금),monthly(당월 납입액),loan,holdings[]}
-   종목: {name,qty,avg,price} */
+   종목: {name,qty,avg,price,symbol,marketPrice,currency,fxRate,quotedAt} */
       const SEED_ASSETS = [
         {
           id: "a1",
@@ -1959,8 +1992,8 @@
           monthly: 0,
           note: "",
           holdings: [
-            { name: "KODEX 미국 나스닥100", qty: 42, avg: 0, price: 26835 },
-            { name: "KODEX 미국 S&P500", qty: 28, avg: 0, price: 23890 },
+            { name: "KODEX 미국 나스닥100", qty: 42, avg: 0, price: 26835, symbol: "KRX:379810" },
+            { name: "KODEX 미국 S&P500", qty: 28, avg: 0, price: 23890, symbol: "KRX:379800" },
           ],
         },
         {
@@ -1972,12 +2005,12 @@
           monthly: 0,
           note: "",
           holdings: [
-            { name: "QQQM", qty: 3, avg: 0, price: 407188 },
-            { name: "QQQ", qty: 1, avg: 0, price: 988888 },
-            { name: "VOO", qty: 1, avg: 0, price: 976203 },
-            { name: "GLD", qty: 1, avg: 0, price: 564390 },
-            { name: "SPYM", qty: 3, avg: 0, price: 125013 },
-            { name: "SLV", qty: 1, avg: 0, price: 82845, theme: "safe" },
+            { name: "QQQM", qty: 3, avg: 0, price: 407188, symbol: "NASDAQ:QQQM" },
+            { name: "QQQ", qty: 1, avg: 0, price: 988888, symbol: "NASDAQ:QQQ" },
+            { name: "VOO", qty: 1, avg: 0, price: 976203, symbol: "NYSEARCA:VOO" },
+            { name: "GLD", qty: 1, avg: 0, price: 564390, symbol: "NYSEARCA:GLD" },
+            { name: "SPYM", qty: 3, avg: 0, price: 125013, symbol: "NYSEARCA:SPYM" },
+            { name: "SLV", qty: 1, avg: 0, price: 82845, symbol: "NYSEARCA:SLV", theme: "safe" },
           ],
         },
         {
@@ -2084,43 +2117,74 @@
         editing: null,
       };
 
-      const DATA_VERSION = 2;
+      const BUILTIN_QUOTE_SYMBOLS = {
+        "KODEX 미국 나스닥100": "KRX:379810",
+        "KODEX 미국 S&P500": "KRX:379800",
+        QQQM: "NASDAQ:QQQM",
+        QQQ: "NASDAQ:QQQ",
+        VOO: "NYSEARCA:VOO",
+        GLD: "NYSEARCA:GLD",
+        SPYM: "NYSEARCA:SPYM",
+        SLV: "NYSEARCA:SLV",
+      };
+      function normalizeQuoteSymbol(v) {
+        return String(v || "")
+          .trim()
+          .toUpperCase()
+          .replace(/\s+/g, "");
+      }
+      function inferQuoteSymbol(name) {
+        const n = String(name || "").trim();
+        if (BUILTIN_QUOTE_SYMBOLS[n]) return BUILTIN_QUOTE_SYMBOLS[n];
+        return /^[A-Z][A-Z0-9.-]{0,14}$/.test(n) ? n : "";
+      }
+
+      const DATA_VERSION = 3;
       /* 예전 버전에서 저장된 데이터를 새 자산·투자 구조로 올린다.
    거래 내역은 절대 건드리지 않고 자산/스냅샷만 손본다. */
       function migrate() {
-        if ((S.v || 1) >= DATA_VERSION) return false;
-        const hasNew = (S.assets || []).some(
-          (a) =>
-            a.group === "isa" ||
-            a.group === "overseas" ||
-            a.group === "housing",
-        );
-        if (!hasNew) {
+        const from = S.v || 1;
+        if (from >= DATA_VERSION) return false;
+        if (from < 2) {
+          const hasNew = (S.assets || []).some(
+            (a) =>
+              a.group === "isa" ||
+              a.group === "overseas" ||
+              a.group === "housing",
+          );
+          if (!hasNew) {
           /* 사용자가 직접 넣은 값이 있는 계좌는 살려서 옮긴다 */
-          const keep = {};
-          (S.assets || []).forEach((a) => {
-            if (
-              ["cash", "real", "insure", "pension"].includes(a.group) &&
-              !keep[a.group]
-            )
-              keep[a.group] = a;
-          });
-          S.assets = structuredClone(SEED_ASSETS).map((sd) => {
-            const old = keep[sd.group];
-            if (old && (Number(old.value) || 0 || Number(old.loan) || 0)) {
-              return {
-                ...sd,
-                name: old.name || sd.name,
-                value: Number(old.value) || 0,
-                loan: Number(old.loan) || 0,
-                monthly: Number(old.monthly) || 0,
-              };
-            }
-            return sd;
-          });
-          /* 예전 '투자' 한 줄(사실은 누적원금)은 버리고 원본 시트 값으로 교체 */
-          S.snaps = Object.assign({}, S.snaps, structuredClone(SEED_SNAPS));
+            const keep = {};
+            (S.assets || []).forEach((a) => {
+              if (
+                ["cash", "real", "insure", "pension"].includes(a.group) &&
+                !keep[a.group]
+              )
+                keep[a.group] = a;
+            });
+            S.assets = structuredClone(SEED_ASSETS).map((sd) => {
+              const old = keep[sd.group];
+              if (old && (Number(old.value) || 0 || Number(old.loan) || 0)) {
+                return {
+                  ...sd,
+                  name: old.name || sd.name,
+                  value: Number(old.value) || 0,
+                  loan: Number(old.loan) || 0,
+                  monthly: Number(old.monthly) || 0,
+                };
+              }
+              return sd;
+            });
+            /* 예전 '투자' 한 줄(사실은 누적원금)은 버리고 원본 시트 값으로 교체 */
+            S.snaps = Object.assign({}, S.snaps, structuredClone(SEED_SNAPS));
+          }
         }
+        /* 기존 보유 종목도 알려진 종목/미국 티커라면 무료 시세에 바로 연결한다. */
+        (S.assets || []).forEach((a) =>
+          (a.holdings || []).forEach((h) => {
+            if (!h.symbol) h.symbol = inferQuoteSymbol(h.name);
+          }),
+        );
         S.v = DATA_VERSION;
         return true;
       }
@@ -2233,7 +2297,7 @@
       }
 
       /* ══════════ Google 시트 동기화 ══════════ */
-      const NEED_SCRIPT_VERSION = 2; // 시트 백엔드(코드.gs)가 이 버전 이상이어야 투자 데이터가 온전히 저장된다
+      const NEED_SCRIPT_VERSION = 3; // v3부터 무료 시세·환율 조회와 시세 메타데이터 저장을 지원한다
       const SYNC = {
         url: "",
         token: "",
@@ -2315,6 +2379,57 @@
         return j;
       }
 
+      function quoteSymbols(only) {
+        const allow = only && new Set(only.map(normalizeQuoteSymbol));
+        const out = new Set();
+        S.assets.forEach((a) =>
+          (a.holdings || []).forEach((h) => {
+            const symbol = normalizeQuoteSymbol(h.symbol);
+            if (symbol && (!allow || allow.has(symbol))) out.add(symbol);
+          }),
+        );
+        return Array.from(out);
+      }
+      async function refreshQuotes(only, opts) {
+        opts = opts || {};
+        if (!SYNC.url)
+          throw new Error("먼저 설정에서 구글 시트를 연결해 주세요.");
+        if (SYNC.stale)
+          throw new Error("Apps Script를 최신 코드(v3)로 다시 배포해 주세요.");
+        const symbols = quoteSymbols(only);
+        if (!symbols.length)
+          throw new Error("시세코드가 있는 종목이 없어요.");
+        const j = await gasCall({ action: "quotes", symbols });
+        const found = new Map(
+          (j.quotes || [])
+            .filter((q) => q && q.ok && Number(q.price) > 0)
+            .map((q) => [normalizeQuoteSymbol(q.symbol), q]),
+        );
+        let updated = 0;
+        S.assets.forEach((a) =>
+          (a.holdings || []).forEach((h) => {
+            const q = found.get(normalizeQuoteSymbol(h.symbol));
+            if (!q) return;
+            h.price = Math.round(Number(q.price));
+            h.marketPrice = Number(q.marketPrice) || 0;
+            h.currency = q.currency || "";
+            h.fxRate = Number(q.fxRate) || 0;
+            h.quotedAt = q.quotedAt || new Date().toISOString();
+            updated++;
+          }),
+        );
+        if (updated) persist("assets");
+        if (opts.render !== false) render();
+        const failed = symbols.length - found.size;
+        if (!opts.quiet)
+          toast(
+            updated
+              ? `${updated}개 시세 갱신${failed ? ` · ${failed}개 실패` : ""}`
+              : "시세를 받지 못했어요. 시세코드를 확인해 주세요.",
+          );
+        return { updated, failed };
+      }
+
       function txRows() {
         const rows = [];
         Object.keys(S.months)
@@ -2361,6 +2476,11 @@
               qty: Number(h.qty) || 0,
               avg: Number(h.avg) || 0,
               price: Number(h.price) || 0,
+              symbol: normalizeQuoteSymbol(h.symbol),
+              marketPrice: Number(h.marketPrice) || 0,
+              currency: h.currency || "",
+              fxRate: Number(h.fxRate) || 0,
+              quotedAt: h.quotedAt || "",
             }),
           ),
         );
@@ -2664,6 +2784,11 @@
               qty,
               price,
               avg,
+              symbol: normalizeQuoteSymbol(h.symbol),
+              marketPrice: Number(h.marketPrice) || 0,
+              currency: h.currency || "",
+              fxRate: Number(h.fxRate) || 0,
+              quotedAt: h.quotedAt || "",
               v,
               cost,
               pl: v - cost,
@@ -2673,6 +2798,16 @@
           });
         });
         return out.sort((x, y) => y.v - x.v);
+      }
+      function holdingPriceText(h) {
+        if (
+          h.currency === "USD" &&
+          Number(h.marketPrice) > 0 &&
+          Number(h.fxRate) > 0
+        ) {
+          return `$${Number(h.marketPrice).toLocaleString("ko-KR", { maximumFractionDigits: 4 })} × ${Number(h.fxRate).toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원 = ${won(h.price)}원`;
+        }
+        return `${won(h.price)}원`;
       }
       /* 스냅샷: 사용자가 말한 컬럼 순서를 그대로 담는다 */
       function buildSnapshot() {
@@ -3167,6 +3302,7 @@
     <div class="hstack" style="margin-top:16px">
       <button class="btn sm" id="snapNow">${ymLabel(nowYm)} 스냅샷 저장</button>
       <button class="btn sm ghost" id="addAsset">＋ 계좌·자산 추가</button>
+      ${SYNC.url ? `<button class="btn sm ghost" id="quoteRefresh">↻ 시세 새로고침</button>` : ""}
     </div>
 
     <div class="assetgrid" style="margin-top:14px">
@@ -3199,7 +3335,7 @@
                     h,
                     i,
                   ) => `<button class="hold" data-asset="${a.id}" data-hold="${i}">
-                 <span>${esc(h.name)}</span><span class="mm">${h.qty}주 · ${won(h.price)}</span>
+                 <span class="grow"><span>${esc(h.name)}</span><span class="mm">${h.qty}주 · ${holdingPriceText(h)}</span></span>
                  <span class="amt">${won(holdVal(h))}</span></button>`,
                 )
                 .join("")
@@ -3211,8 +3347,11 @@
       .join("")}
     </div>
 
-    <div class="note" style="margin:14px 0 30px">시세는 자동으로 안 들어와요. <b>종목 줄을 바로 눌러</b> 현재가만 고치면
-      평가금이 그 자리에서 다시 계산돼요. 구글 시트를 연결했다면 <b>종목</b> 탭에서 현재가만 고쳐도 반영됩니다.</div>
+    <div class="note" style="margin:14px 0 30px">${
+      SYNC.url
+        ? `시세코드를 등록한 종목은 <b>시세 새로고침</b>으로 현재가를 갱신해요. 미국 종목은 달러 시세에 원/달러 환율을 적용합니다.`
+        : `자동 시세를 쓰려면 먼저 <b>설정 → 구글 시트 연결</b>을 해주세요. 연결 전에는 종목 줄에서 현재가를 직접 고칠 수 있어요.`
+    }</div>
   </section>`;
       }
 
@@ -3579,7 +3718,7 @@
       SYNC.stale
         ? `<div class="banner" style="margin-top:10px">
       <div><div class="t">시트 백엔드가 구버전이에요 (v${SYNC.ver})</div>
-      <div class="s">종목·투자 데이터가 시트에 저장되지 않아요. <b>코드.gs</b>를 다시 붙여넣고
+      <div class="s">무료 시세·환율 기능을 쓰려면 <b>코드.gs</b>를 다시 붙여넣고
         배포 관리 → 연필 → 버전: <b>새 버전</b> → 배포 하세요.</div></div></div>`
         : ""
     }
@@ -3776,6 +3915,30 @@
       }
       /* 종목 한 줄 — 이름·수량·평단·현재가를 그 자리에서 고친다.
    값을 치면 평가금이 바로 다시 계산되고 계좌 평가액까지 따라 움직인다. */
+      function quoteMetaHtml(h) {
+        const symbol = normalizeQuoteSymbol(h.symbol);
+        if (!symbol) return "";
+        let detail = "시세코드 " + esc(symbol);
+        if (Number(h.marketPrice) > 0 && h.currency) {
+          const raw = Number(h.marketPrice).toLocaleString("ko-KR", {
+            maximumFractionDigits: 4,
+          });
+          if (h.currency === "USD" && Number(h.fxRate) > 0) {
+            detail = `USD $${raw} × 환율 ${Number(h.fxRate).toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원 = ${won(h.price)}원`;
+          } else if (h.currency === "KRW") {
+            detail = `KRW ${won(h.marketPrice)}원`;
+          } else if (Number(h.fxRate) > 0) {
+            detail = `${esc(h.currency)} ${raw} × 환율 ${Number(h.fxRate).toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원 = ${won(h.price)}원`;
+          }
+        }
+        let at = "";
+        if (h.quotedAt) {
+          const d = new Date(h.quotedAt);
+          if (!Number.isNaN(d.getTime()))
+            at = ` · ${d.toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} 갱신`;
+        }
+        return `<div class="hpl" data-hquote>${detail}${at}</div>`;
+      }
       function holdEditRow(h, i) {
         const v = holdVal(h),
           c = holdCost(h);
@@ -3790,6 +3953,8 @@
       <label>평단가<input type="number" inputmode="numeric" data-h="avg" value="${Number(h.avg) || 0}" aria-label="평단가"></label>
       <label>현재가<input type="number" inputmode="numeric" data-h="price" value="${Number(h.price) || 0}" aria-label="현재가"></label>
     </div>
+    <div class="hquote"><label>시세코드<input data-h="symbol" value="${esc(h.symbol || "")}" placeholder="NASDAQ:QQQ / KRX:005930" aria-label="시세코드"></label></div>
+    ${quoteMetaHtml(h)}
     <div class="hpl" data-hpl></div>
   </div>`;
       }
@@ -3834,7 +3999,8 @@
       <input id="a_mi" type="number" inputmode="numeric" value="${Number(a.monthly) || 0}"></div>
 
     <div id="holdF" ${inv ? "" : "hidden"}>
-      <h2 class="sec" style="margin-top:18px">종목</h2>
+      <div class="hstack" style="margin-top:18px"><h2 class="sec" style="margin:0">종목</h2>
+        ${SYNC.url ? `<button class="btn sm ghost" id="h_quote">↻ 시세 새로고침</button>` : ""}</div>
       <div class="card rows" id="holdList">${holdListHtml(hs)}</div>
       <div class="note" id="holdSum" style="margin-top:8px"></div>
       <div class="field" style="margin-top:10px"><div class="row2">
@@ -3843,6 +4009,8 @@
       <div class="field"><div class="row2">
         <input id="h_a" type="number" inputmode="numeric" placeholder="평단가"><input id="h_p" type="number" inputmode="numeric" placeholder="현재가">
       </div></div>
+      <div class="field"><input id="h_s" autocapitalize="characters" placeholder="시세코드 · NASDAQ:QQQ / KRX:005930"></div>
+      <div class="note" style="margin:-5px 0 10px">미국 티커명(QQQ·VOO 등)은 비워도 자동 연결돼요. 국내 종목은 KRX 또는 KOSDAQ 코드까지 넣어주세요.</div>
       <button class="btn ghost" id="h_add" style="margin-bottom:14px">종목 추가</button>
     </div>
 
@@ -3928,7 +4096,18 @@
                     const h = (a.holdings || [])[i];
                     if (!h) return;
                     const f = inp.dataset.h;
-                    h[f] = f === "name" ? inp.value : Number(inp.value) || 0;
+                    h[f] =
+                      f === "name"
+                        ? inp.value
+                        : f === "symbol"
+                          ? normalizeQuoteSymbol(inp.value)
+                          : Number(inp.value) || 0;
+                    if (f === "price") {
+                      h.marketPrice = 0;
+                      h.currency = "";
+                      h.fxRate = 0;
+                      h.quotedAt = "";
+                    }
                     paintHolds();
                     saveHolds();
                   };
@@ -3965,28 +4144,85 @@
               bindHolds();
               paintHolds();
             }
+            $("#h_quote") &&
+              ($("#h_quote").onclick = async () => {
+                const b = $("#h_quote");
+                const old = b.textContent;
+                b.disabled = true;
+                b.textContent = "조회 중…";
+                try {
+                  const symbols = (a.holdings || [])
+                    .map((h) => normalizeQuoteSymbol(h.symbol))
+                    .filter(Boolean);
+                  const result = await refreshQuotes(symbols, {
+                    quiet: true,
+                    render: false,
+                  });
+                  renderHolds();
+                  render();
+                  toast(
+                    result.updated
+                      ? `${result.updated}개 시세를 갱신했어요${result.failed ? ` · ${result.failed}개 실패` : ""}`
+                      : "시세를 받지 못했어요. 코드를 확인해 주세요.",
+                  );
+                } catch (e) {
+                  toast(e.message);
+                } finally {
+                  if (b) {
+                    b.disabled = false;
+                    b.textContent = old;
+                  }
+                }
+              });
             $("#h_add") &&
-              ($("#h_add").onclick = () => {
+              ($("#h_add").onclick = async () => {
                 const n = $("#h_n").value.trim();
                 if (!n) return toast("종목명을 넣어주세요");
+                const symbol = normalizeQuoteSymbol(
+                  $("#h_s").value || inferQuoteSymbol(n),
+                );
+                if (symbol && !/^[A-Z0-9.:^=_-]+$/.test(symbol))
+                  return toast("시세코드는 영문·숫자·콜론(:)으로 입력해 주세요.");
+                if (/^\d{6}$/.test(symbol))
+                  return toast("국내 종목은 KRX:005930처럼 거래소도 넣어주세요.");
                 a.holdings = a.holdings || [];
-                a.holdings.push({
+                const added = {
                   name: n,
                   qty: Number($("#h_q").value) || 0,
                   avg: Number($("#h_a").value) || 0,
                   price:
                     Number($("#h_p").value) || Number($("#h_a").value) || 0,
-                });
+                  symbol,
+                };
+                a.holdings.push(added);
                 clearTimeout(holdTimer);
                 commit({});
                 renderHolds();
                 render();
-                ["#h_n", "#h_q", "#h_a", "#h_p"].forEach((sel) => {
+                ["#h_n", "#h_q", "#h_a", "#h_p", "#h_s"].forEach((sel) => {
                   const el = $(sel);
                   if (el) el.value = "";
                 });
                 $("#h_n").focus();
-                toast(n + " 추가했어요");
+                if (symbol && SYNC.url && !SYNC.stale) {
+                  try {
+                    const result = await refreshQuotes([symbol], {
+                      quiet: true,
+                      render: false,
+                    });
+                    renderHolds();
+                    render();
+                    toast(
+                      result.updated
+                        ? `${n} 추가 · 현재가도 불러왔어요`
+                        : `${n} 추가 · 시세코드를 확인해 주세요`,
+                    );
+                  } catch (e) {
+                    toast(`${n}은 추가했지만 시세 조회는 실패했어요`);
+                  }
+                } else {
+                  toast(n + (symbol ? " 추가했어요" : " 추가 · 시세코드는 나중에 연결할 수 있어요"));
+                }
               });
             /* 종목 줄을 눌러서 들어왔으면 그 종목의 현재가에 바로 커서를 둔다 */
             if (focusHold != null) {
@@ -4192,7 +4428,8 @@
         if (iName < 0) return null;
         const iAcct = find(/구분/),
           iQty = find(/수량|보유/),
-          iAvg = find(/평단/);
+          iAvg = find(/평단/),
+          iSymbol = find(/시세코드|종목코드|티커|ticker|symbol/i);
         let iPrice = find(/현재가|종가/);
         if (iPrice < 0) iPrice = find(/단가/);
         const byGroup = {};
@@ -4206,6 +4443,10 @@
             qty: iQty >= 0 ? numOf(r[iQty]) : 0,
             avg: iAvg >= 0 ? numOf(r[iAvg]) : 0,
             price: iPrice >= 0 ? numOf(r[iPrice]) : 0,
+            symbol:
+              iSymbol >= 0
+                ? normalizeQuoteSymbol(r[iSymbol])
+                : inferQuoteSymbol(name),
           });
         });
         return Object.keys(byGroup).length ? { holdings: byGroup } : null;
@@ -4287,7 +4528,7 @@
     <div class="note" style="margin-bottom:12px">네 가지 형식을 알아들어요. 시트에서 범위 잡고 복사해서 그대로 붙여넣으면 돼요.<br>
       ① <b>가계부 시트</b> — 열이 월(8월, 9월…), 행이 항목인 표<br>
       ② <b>거래 목록</b> — <code>날짜,분류,금액,메모,일회성</code> 헤더<br>
-      ③ <b>종목별 포트폴리오</b> — <code>계좌구분, 투자 종목명, 보유수량, 평단가, 현재가</code> 열이 있으면 원금·종목 비중이 들어가요<br>
+      ③ <b>종목별 포트폴리오</b> — <code>계좌구분, 투자 종목명, 시세코드, 보유수량, 평단가, 현재가</code> 열이 있으면 원금·종목 비중이 들어가요<br>
       ④ <b>투자 월별 평가</b> — <code>당월 투자 납입액, 누적납입원금, ISA 평가액…</code> 열이 있으면 월별 기록이 들어가요</div>
     <div class="field"><label>붙여넣기</label>
       <textarea id="imp_t" placeholder="시트에서 머리글 행까지 포함해 범위를 잡고 복사한 뒤 여기에 붙여넣으세요"></textarea>
@@ -4558,9 +4799,13 @@
             hs.map((h) => ({
               계좌구분: h.acct,
               "투자 종목명": h.name,
+              시세코드: h.symbol,
               보유수량: h.qty,
               평단가: h.avg,
               현재가: h.price,
+              원시세: h.marketPrice || "",
+              통화: h.currency || "",
+              적용환율: h.fxRate || "",
               평가금액: h.v,
               실제비중: Number(((h.v / hTot) * 100).toFixed(2)),
             })),
@@ -4718,6 +4963,17 @@
         }
         if (t.id === "addQuick") {
           openQuickSheet(-1);
+          return;
+        }
+        if (t.id === "quoteRefresh") {
+          const old = t.textContent;
+          t.disabled = true;
+          t.textContent = "시세 조회 중…";
+          refreshQuotes().catch((e) => {
+            toast(e.message);
+            t.disabled = false;
+            t.textContent = old;
+          });
           return;
         }
         if (t.id === "syncSetup") {
@@ -5122,7 +5378,7 @@
         ${
           SYNC.stale
             ? `<div class="banner" style="margin-top:14px"><div>
-            <div class="t">백엔드가 구버전이라 투자 데이터가 안 들어가요</div>
+            <div class="t">백엔드가 구버전이라 자동 시세를 쓸 수 없어요</div>
             <div class="s">받은 파일의 <b>apps-script/코드.gs</b>를 편집기에 <b>전부 다시 붙여넣고</b> 저장 →
               <b>배포 관리 → 연필(편집) → 버전: 새 버전 → 배포</b>.
               그다음 여기서 <b>시트로 올리기</b>를 누르세요.</div></div></div>`

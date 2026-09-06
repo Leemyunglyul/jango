@@ -9,13 +9,14 @@
  */
 
 /* 이 값을 앱이 확인한다. 코드를 갱신했는데 재배포를 안 하면 앱이 알아채고 알려준다. */
-var SCRIPT_VERSION = 2;
+var SCRIPT_VERSION = 3;
 
-var SH_TX = "거래", SH_SET = "설정", SH_AS = "자산", SH_SNAP = "스냅샷", SH_HOLD = "종목";
+var SH_TX = "거래", SH_SET = "설정", SH_AS = "자산", SH_SNAP = "스냅샷", SH_HOLD = "종목", SH_QUOTE = "_시세";
 
 var TX_HEAD   = ["날짜", "월", "구분", "분류", "금액", "메모", "일회성", "ID", "분류ID"];
 var AS_HEAD   = ["이름", "구분", "평가액", "누적 납입원금", "당월 납입액", "대출잔액", "메모", "ID", "구분ID"];
-var HOLD_HEAD = ["계좌", "종목", "수량", "평단가", "현재가", "평가액", "평가손익", "계좌ID"];
+var HOLD_HEAD = ["계좌", "종목", "수량", "평단가", "현재가", "평가액", "평가손익", "계좌ID",
+                 "시세코드", "원시세", "통화", "적용환율", "시세갱신"];
 var SNAP_HEAD = ["월", "당월 납입", "누적 원금", "현금", "ISA", "해외직투", "국내주식", "연금",
                  "기타 투자", "주택청약", "투자 평가액", "부동산", "보험", "부채",
                  "순자산(부동산 제외)", "순자산", "기록일"];
@@ -52,6 +53,7 @@ function handle(e) {
       });
     }
     if (action === "load") return out({ ok: true, rev: getRev(), data: readAll() });
+    if (action === "quotes") return out({ ok: true, quotes: getQuotes(body.symbols || []) });
 
     if (action === "save") {
       var lock = LockService.getScriptLock();
@@ -107,6 +109,125 @@ function toISO(v) {
 function toDate(s) {
   try { return Utilities.parseDate(String(s).slice(0, 10), tz(), "yyyy-MM-dd"); }
   catch (e) { return String(s); }
+}
+function toISOTime(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, "UTC", "yyyy-MM-dd'T'HH:mm:ss'Z'");
+  return String(v || "");
+}
+
+/* 무료 시세 공급원으로 GOOGLEFINANCE(미국·환율)와 네이버 증권(국내)을 쓴다.
+   앱에는 원화 현재가를 돌려주고 외화 종목은 원시세와 환율도 함께 돌려준다. */
+function getQuotes(input) {
+  var seen = {}, symbols = [];
+  (input || []).forEach(function (v) {
+    var symbol = String(typeof v === "string" ? v : (v && v.symbol) || "")
+      .trim().toUpperCase();
+    if (!symbol || symbol.length > 40 || !/^[A-Z0-9.:^=_-]+$/.test(symbol) || seen[symbol]) return;
+    seen[symbol] = true;
+    if (symbols.length < 40) symbols.push(symbol);
+  });
+  if (!symbols.length) return [];
+
+  var cache = CacheService.getScriptCache(), cached = {}, missing = [];
+  symbols.forEach(function (symbol) {
+    var raw = cache.get("quote:" + symbol);
+    if (raw) {
+      try { cached[symbol] = JSON.parse(raw); } catch (e) {}
+    }
+    if (!cached[symbol]) missing.push(symbol);
+  });
+
+  if (missing.length) {
+    readMarketQuotes(missing).forEach(function (q) {
+      cached[q.symbol] = q;
+      if (q.ok) cache.put("quote:" + q.symbol, JSON.stringify(q), 300);
+    });
+  }
+  return symbols.map(function (symbol) {
+    return cached[symbol] || { symbol: symbol, ok: false, error: "시세를 찾지 못했습니다." };
+  });
+}
+
+function readMarketQuotes(symbols) {
+  var domestic = [], global = [];
+  symbols.forEach(function (symbol) {
+    if (/^(KRX|KOSDAQ):\d{6}$/.test(symbol)) domestic.push(symbol);
+    else global.push(symbol);
+  });
+  return readNaverQuotes(domestic).concat(readGoogleFinance(global));
+}
+
+/* GOOGLEFINANCE가 국내 거래소를 안정적으로 지원하지 않아서 KRX/KOSDAQ은
+   네이버 증권의 공개 현재가 JSON을 사용한다. 실패하면 기존 수동 가격을 유지한다. */
+function readNaverQuotes(symbols) {
+  if (!symbols.length) return [];
+  var requests = symbols.map(function (symbol) {
+    var code = symbol.split(":")[1];
+    return {
+      url: "https://m.stock.naver.com/api/stock/" + encodeURIComponent(code) + "/basic",
+      method: "get", muteHttpExceptions: true,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; JangoQuote/1.0)" }
+    };
+  });
+  var responses;
+  try { responses = UrlFetchApp.fetchAll(requests); }
+  catch (e) { responses = []; }
+  return symbols.map(function (symbol, i) {
+    try {
+      var res = responses[i];
+      if (!res || res.getResponseCode() !== 200) throw new Error("HTTP 오류");
+      var data = JSON.parse(res.getContentText()),
+          price = Number(String(data.closePrice || "").replace(/,/g, "")) || 0;
+      if (!price) throw new Error("현재가 없음");
+      return {
+        symbol: symbol, ok: true, price: price, marketPrice: price,
+        currency: "KRW", fxRate: 1,
+        quotedAt: data.localTradedAt || new Date().toISOString()
+      };
+    } catch (e) {
+      return { symbol: symbol, ok: false, error: "국내 시세를 받지 못했습니다." };
+    }
+  });
+}
+
+function readGoogleFinance(symbols) {
+  if (!symbols.length) return [];
+  var ssObj = ss(), s = ssObj.getSheetByName(SH_QUOTE);
+  if (!s) s = ssObj.insertSheet(SH_QUOTE);
+  s.clearContents();
+  s.getRange(1, 1, 1, 5).setValues([["시세코드", "원시세", "통화", "통화/원 환율", "원화 현재가"]]);
+  s.getRange(2, 1, symbols.length, 1).setValues(symbols.map(function (x) { return [x]; }));
+  var formulas = symbols.map(function (_, i) {
+    var r = i + 2;
+    return [
+      '=IFERROR(GOOGLEFINANCE(A' + r + ',"price"),"")',
+      '=IFERROR(GOOGLEFINANCE(A' + r + ',"currency"),"")',
+      '=IFERROR(IF(C' + r + '="KRW",1,GOOGLEFINANCE("CURRENCY:"&C' + r + '&"KRW")),"")',
+      '=IFERROR(ROUND(B' + r + '*D' + r + ',0),"")'
+    ];
+  });
+  s.getRange(2, 2, formulas.length, 4).setFormulas(formulas);
+  if (!s.isSheetHidden()) s.hideSheet();
+
+  var values = [];
+  for (var attempt = 0; attempt < 5; attempt++) {
+    SpreadsheetApp.flush();
+    Utilities.sleep(700);
+    values = s.getRange(2, 1, symbols.length, 5).getValues();
+    if (values.every(function (r) { return Number(r[4]) > 0; })) break;
+  }
+  var at = new Date().toISOString();
+  return values.map(function (r, i) {
+    var marketPrice = Number(r[1]) || 0, currency = String(r[2] || ""),
+        fxRate = Number(r[3]) || 0, price = Number(r[4]) || 0;
+    if (!marketPrice || !currency || !fxRate || !price) {
+      return { symbol: symbols[i], ok: false, error: "GOOGLEFINANCE에서 시세를 받지 못했습니다." };
+    }
+    return {
+      symbol: symbols[i], ok: true, price: price, marketPrice: marketPrice,
+      currency: currency, fxRate: fxRate, quotedAt: at
+    };
+  });
 }
 
 /* ── 읽기 ────────────────────────────────────────────────── */
@@ -187,7 +308,12 @@ function readHolds() {
       name:  name,
       qty:   Number(r[2]) || 0,
       avg:   Number(r[3]) || 0,
-      price: Number(r[4]) || 0
+      price: Number(r[4]) || 0,
+      symbol: String(r[8] || ""),
+      marketPrice: Number(r[9]) || 0,
+      currency: String(r[10] || ""),
+      fxRate: Number(r[11]) || 0,
+      quotedAt: toISOTime(r[12])
     });
   });
   return out;
@@ -267,11 +393,15 @@ function writeAssets(list) {
    시트에서 '현재가'만 고쳐도 그 자리에서 다시 계산된다. */
 function writeHolds(list) {
   var s = sheet(SH_HOLD, HOLD_HEAD);
+  s.getRange(1, 1, 1, HOLD_HEAD.length).setValues([HOLD_HEAD])
+    .setFontWeight("bold").setBackground("#EFEDE4");
   clearBody(s, HOLD_HEAD.length);
   if (!list || !list.length) return;
   var vals = list.map(function (h) {
     return [h.acct || "", h.name || "", Number(h.qty) || 0,
-            Number(h.avg) || 0, Number(h.price) || 0, "", "", h.acctId || ""];
+            Number(h.avg) || 0, Number(h.price) || 0, "", "", h.acctId || "",
+            h.symbol || "", Number(h.marketPrice) || 0, h.currency || "",
+            Number(h.fxRate) || 0, h.quotedAt || ""];
   });
   s.getRange(2, 1, vals.length, HOLD_HEAD.length).setValues(vals);
   var f = vals.map(function (_, i) {
@@ -281,6 +411,8 @@ function writeHolds(list) {
   });
   s.getRange(2, 6, f.length, 2).setFormulas(f);
   s.getRange(2, 4, vals.length, 4).setNumberFormat("#,##0");
+  s.getRange(2, 10, vals.length, 1).setNumberFormat("#,##0.00");
+  s.getRange(2, 12, vals.length, 1).setNumberFormat("#,##0.00");
 }
 
 function writeSnaps(map) {
