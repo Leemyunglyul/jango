@@ -95,13 +95,27 @@ nav.tabs{
   background:color-mix(in srgb,var(--ground) 92%,transparent);
   backdrop-filter:blur(12px);border-top:1px solid var(--line);
 }
-.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(6,1fr)}
+.tabs button{padding-left:0;padding-right:0}
 .tabs button{padding:10px 0 14px;font-size:12.5px;color:var(--ink3);font-weight:500;position:relative}
 .tabs button[aria-current="page"]{color:var(--ink);font-weight:600}
 .tabs button[aria-current="page"]::before{
   content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
   width:22px;height:2px;background:var(--accent);border-radius:0 0 2px 2px
 }
+/* ── 다단 레이아웃 (모바일에서는 전부 한 줄로 흐름) ── */
+.cols{display:block}
+.setgrid{display:block}
+.assetgrid{display:block}
+.cols>div>h2.sec:first-child{margin-top:26px}
+.setblk>h2.sec{margin-top:26px}
+.kbdhint{display:none;align-items:center;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink3);margin-top:12px}
+.kbdhint span{display:flex;align-items:center;gap:5px}
+.kbdhint kbd{font-family:"IBM Plex Mono",monospace;font-size:11px;line-height:1.4;background:var(--surface2);
+  border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--ink2)}
+.caret{display:none}
+@keyframes caret{0%,50%{opacity:1}50.01%,100%{opacity:0}}
+
 @media (min-width:920px){
   body{padding-bottom:0}
   .shell{display:grid;grid-template-columns:210px minmax(0,1fr);gap:32px;max-width:1000px;margin:0 auto;padding:0 24px}
@@ -151,7 +165,7 @@ h2.sec:first-child{margin-top:6px}
 .quick b{font-weight:500;color:var(--ink3);font-family:"IBM Plex Mono",monospace}
 .catgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
 @media (min-width:520px){.catgrid{grid-template-columns:repeat(5,1fr)}}
-.cat{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 4px;font-size:12.5px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:5px;line-height:1.25;min-height:56px;justify-content:center;text-align:center}
+.cat{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 5px;word-break:keep-all;font-size:12.5px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:5px;line-height:1.25;min-height:56px;justify-content:center;text-align:center}
 .cat .dot{width:7px;height:7px}
 .cat[aria-pressed="true"]{border-color:currentColor;background:var(--surface2);font-weight:600;box-shadow:inset 0 0 0 1px currentColor}
 .memoinput{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:14px}
@@ -228,6 +242,20 @@ svg.chart .axis{stroke:var(--line);stroke-width:1}
 .tip .tr i{width:8px;height:8px;border-radius:2px;flex:none}
 .tip .tr b{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-weight:500}
 
+/* ---------- 데이터 표 ---------- */
+.dtable{width:100%;border-collapse:collapse;font-size:12.5px;white-space:nowrap}
+.dtable th{font-size:11px;font-weight:600;color:var(--ink3);text-align:right;padding:9px 11px;
+  border-bottom:1px solid var(--line);letter-spacing:.02em;background:var(--surface)}
+.dtable th:first-child,.dtable td:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1}
+.dtable th:first-child{z-index:2}
+.dtable td{text-align:right;padding:10px 11px;border-bottom:1px solid var(--line-soft);
+  font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.dtable tbody tr:last-child td{border-bottom:none}
+.dtable td.z{color:var(--ink3)}
+.dtable td.hl{font-weight:500}
+.dtable .now td{background:var(--surface2)}
+.dtable .now td:first-child{background:var(--surface2)}
+
 /* ---------- assets ---------- */
 .hero{padding:20px 16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
 .hero .k{font-size:12px;color:var(--ink3);font-weight:500;letter-spacing:.04em}
@@ -261,6 +289,44 @@ svg.chart .axis{stroke:var(--line);stroke-width:1}
   .handle{display:none}
   .sheet-in{padding:22px 22px 26px}
 }
+/* ── 넓은 화면(≥1080): 진짜 데스크톱 레이아웃 ── */
+@media (min-width:1080px){
+  .shell{grid-template-columns:224px minmax(0,1fr);max-width:1340px;gap:40px;padding:0 28px}
+  .topbar-in{max-width:1340px;padding:14px 28px 12px}
+  .app{padding-bottom:72px}
+
+  .cols{display:grid;gap:28px;align-items:start}
+  .cols>div{min-width:0}
+  .cols>.colB>h2.sec:first-child{margin-top:6px}
+
+  .cols-rec{grid-template-columns:minmax(0,1fr) 380px}
+  .cols-rec>.colA{grid-column:1;grid-row:1}
+  .cols-rec>.colB{grid-column:2;grid-row:1}
+
+  .cols-list{grid-template-columns:minmax(0,1fr) 320px}
+  .cols-list>.colA{grid-column:1;grid-row:1}
+  .cols-list>.colB{grid-column:2;grid-row:1}
+  .cols-list>.colB .tiles{grid-template-columns:1fr}
+
+  .cols-half{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+
+  .setgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;align-items:start}
+  .assetgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  .assetgrid>.card{margin-top:0!important}
+
+  .catgrid{grid-template-columns:repeat(6,1fr)}
+  .keypad-sec{display:none}
+  .kbdhint{display:flex}
+  .caret{display:inline-block;width:2px;height:.72em;background:var(--accent);margin:0 1px;animation:caret 1.1s step-end infinite}
+  .bigamt{font-size:54px}
+  .hero .v{font-size:44px}
+}
+@media (min-width:1440px){
+  .cols-rec{grid-template-columns:minmax(0,1fr) 420px}
+  .catgrid{grid-template-columns:repeat(7,1fr)}
+}
+@media (prefers-reduced-motion:reduce){.caret{animation:none}}
+
 .toast{position:fixed;left:50%;bottom:92px;transform:translate(-50%,10px);z-index:70;background:var(--ink);color:var(--ground);padding:10px 16px;border-radius:99px;font-size:13px;font-weight:500;opacity:0;transition:.2s;pointer-events:none}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 @media (min-width:920px){.toast{bottom:28px}}
@@ -288,6 +354,7 @@ svg.chart .axis{stroke:var(--line);stroke-width:1}
       <button data-tab="list">내역</button>
       <button data-tab="stats">통계</button>
       <button data-tab="assets">자산</button>
+      <button data-tab="invest">투자</button>
       <button data-tab="settings">설정</button>
     </div>
   </nav>
@@ -387,22 +454,54 @@ const SEED_MONTHS = {
     {id:"t07",d:"2026-09-05",c:"med",    a:24700,k:"ex",m:"스케일링",o:true}
   ]}
 };
+/* 자산 항목: {id,name,group,value(평가액),principal(누적 납입원금),monthly(당월 납입액),loan,holdings[]}
+   종목: {name,qty,avg,price} */
 const SEED_ASSETS = [
-  {id:"a1",name:"잔여 현금",   group:"cash",  value:15366000, note:"엑셀 이월"},
-  {id:"a2",name:"투자 계좌",   group:"invest",value:6067310,  note:"엑셀 이월", holdings:[]},
-  {id:"a3",name:"오피스텔",    group:"real",  value:0, loan:0, note:"시세·대출 잔액 입력 필요"},
-  {id:"a4",name:"개인연금",    group:"pension",value:0, monthly:0, note:"평가액 입력 필요"},
-  {id:"a5",name:"보험",        group:"insure",value:0, monthly:0, note:"해지환급금 입력 필요"}
+  {id:"a1", name:"잔여 현금", group:"cash", value:15366000, note:"엑셀 이월"},
+  {id:"a2", name:"ISA", group:"isa", value:0, principal:0, monthly:0, note:"", holdings:[
+    {name:"KODEX 미국 나스닥100", qty:42, avg:0, price:26835},
+    {name:"KODEX 미국 S&P500",   qty:28, avg:0, price:23890}
+  ]},
+  {id:"a6", name:"해외직투", group:"overseas", value:0, principal:0, monthly:0, note:"", holdings:[
+    {name:"QQQM", qty:3, avg:0, price:407188},
+    {name:"QQQ",  qty:1, avg:0, price:988888},
+    {name:"VOO",  qty:1, avg:0, price:976203},
+    {name:"GLD",  qty:1, avg:0, price:564390},
+    {name:"SPYM", qty:3, avg:0, price:125013},
+    {name:"SLV",  qty:1, avg:0, price:82845,  theme:"safe"}
+  ]},
+  {id:"a8", name:"주택청약",     group:"housing", value:8540000, note:"엑셀 이월"},
+  {id:"a4", name:"연금저축·IRP", group:"pension", value:0, principal:0, monthly:0, note:"평가액 입력 필요", holdings:[]},
+  {id:"a3", name:"오피스텔",     group:"real",    value:0, loan:0, note:"시세·대출 잔액 입력 필요"},
+  {id:"a5", name:"보험",         group:"insure",  value:0, monthly:0, note:"해지환급금 입력 필요"}
 ];
+/* invest:true = 투자 탭에서 평가액·원금·비중을 따지는 계좌.
+   주택청약은 적립이라 평가손익을 왜곡시키므로 false. */
 const GROUPS = [
-  {id:"cash",  name:"현금·예금"},
-  {id:"invest",name:"투자"},
-  {id:"real",  name:"부동산"},
-  {id:"pension",name:"연금"},
-  {id:"insure",name:"보험"},
-  {id:"debt",  name:"부채"}
+  {id:"cash",     name:"현금·예금", invest:false},
+  {id:"isa",      name:"ISA",       invest:true},
+  {id:"overseas", name:"해외직투",   invest:true},
+  {id:"domestic", name:"국내주식",   invest:true},
+  {id:"pension",  name:"연금",       invest:true},
+  {id:"etcinv",   name:"기타 투자",  invest:true},
+  {id:"housing",  name:"주택청약",   invest:false},
+  {id:"real",     name:"부동산",     invest:false},
+  {id:"insure",   name:"보험",       invest:false},
+  {id:"debt",     name:"부채",       invest:false}
 ];
-const SEED_SNAPS = {"2026-08":{cash:15366000,invest:6067310,real:0,pension:0,insure:0,debt:0,total:21433310}};
+const GSHADE = {cash:"var(--accent)", isa:"var(--invest)", overseas:"#7A5AF8", domestic:"#0E8FA8",
+  pension:"var(--warn)", etcinv:"var(--ink3)", housing:"#B0762E", real:"var(--expense)",
+  insure:"#8C948E", debt:"var(--crit)"};
+const isInvestGroup = g => (GROUPS.find(x=>x.id===g)||{}).invest === true;
+
+/* 원본 '투자 월별 평가' 시트 2026-08 행 그대로 */
+const SEED_SNAPS = {"2026-08":{
+  at:"2026-08-31",
+  contrib:6067310, principal:6067310,
+  cash:15366000, isa:1795990, overseas:4208929, housing:8540000,
+  domestic:0, pension:0, etcinv:0, real:0, insure:0, debt:0,
+  invest:6004919, total:29910919, totalExReal:29910919
+}};
 
 /* ============================== 상태 ============================== */
 const LSKEY = "jango.v1";
@@ -504,6 +603,15 @@ function txRows(){
 function assetRows(){
   return S.assets.map(a=>Object.assign({}, a, {gn:(GROUPS.find(g=>g.id===a.group)||{}).name||a.group}));
 }
+/* 종목은 시트에서 따로 관리한다 (시트에서 현재가만 고쳐도 반영되게) */
+function holdRows(){
+  const out=[];
+  S.assets.forEach(a=>(a.holdings||[]).forEach(h=>out.push({
+    acctId:a.id, acct:a.name, name:h.name,
+    qty:Number(h.qty)||0, avg:Number(h.avg)||0, price:Number(h.price)||0
+  })));
+  return out;
+}
 function settingsPart(){
   return {cats:S.settings.cats, budgets:S.settings.budgets,
           recurring:S.settings.recurring, quick:S.settings.quick, rec:S.rec||{}};
@@ -512,7 +620,7 @@ function buildParts(keys){
   const parts={};
   if(keys.some(k=>k.startsWith("month:"))) parts.tx = txRows();
   if(keys.includes("settings")||keys.includes("rec")) parts.settings = settingsPart();
-  if(keys.includes("assets")) parts.assets = assetRows();
+  if(keys.includes("assets")){ parts.assets = assetRows(); parts.holds = holdRows(); }
   if(keys.includes("snaps"))  parts.snaps  = S.snaps;
   return parts;
 }
@@ -638,25 +746,69 @@ function missingRecurring(ym){
   const items = monthItems(ym);
   return S.settings.recurring.filter(r=>!items.some(it=>it.c===r.cat && it.k==="ex" && (it.m||"").includes(r.name)));
 }
-function assetTotals(){
-  const g = {}; GROUPS.forEach(x=>g[x.id]=0);
-  S.assets.forEach(a=>{
-    let v = Number(a.value)||0;
-    if(a.group==="invest" && a.holdings && a.holdings.length){
-      v = a.holdings.reduce((s,h)=> s + (Number(h.qty)||0)*(Number(h.price)||0), 0) || v;
-    }
-    if(a.group==="real") v = v - (Number(a.loan)||0);
-    g[a.group] = (g[a.group]||0) + (a.group==="debt" ? -Math.abs(v) : v);
-  });
-  const total = Object.values(g).reduce((a,b)=>a+b,0);
-  return {g, total};
-}
 function assetValue(a){
-  if(a.group==="invest" && a.holdings && a.holdings.length)
-    return a.holdings.reduce((s,h)=> s + (Number(h.qty)||0)*(Number(h.price)||0), 0);
+  /* 종목이 등록돼 있으면 종목 평가액 합이 우선, 없으면 직접 입력한 평가액 */
+  if(a.holdings && a.holdings.length){
+    const v = a.holdings.reduce((s,h)=> s + (Number(h.qty)||0)*(Number(h.price)||0), 0);
+    if(v > 0) return v;
+  }
   if(a.group==="real") return (Number(a.value)||0) - (Number(a.loan)||0);
   if(a.group==="debt") return -Math.abs(Number(a.value)||0);
   return Number(a.value)||0;
+}
+function assetTotals(){
+  const g = {}; GROUPS.forEach(x=>g[x.id]=0);
+  S.assets.forEach(a=>{ g[a.group] = (g[a.group]||0) + assetValue(a); });
+  const total = Object.values(g).reduce((a,b)=>a+b,0);
+  const investTotal = GROUPS.filter(x=>x.invest).reduce((s,x)=>s+(g[x.id]||0),0);
+  const totalExReal = total - (g.real||0);
+  return {g, total, investTotal, totalExReal};
+}
+/* 투자 계좌들의 원금·납입 집계 */
+function latestSnap(){
+  const ks = Object.keys(S.snaps).sort();
+  return ks.length ? S.snaps[ks[ks.length-1]] : null;
+}
+function investTotals(){
+  const {g, investTotal, total, totalExReal} = assetTotals();
+  let principal = 0, contrib = 0;
+  S.assets.forEach(a=>{
+    if(!isInvestGroup(a.group)) return;
+    principal += Number(a.principal)||0;
+    contrib   += Number(a.monthly)||0;
+  });
+  /* 계좌별 누적원금을 아직 안 넣었으면 마지막 스냅샷의 누적원금을 이어 쓴다.
+     (당월 납입액은 이어 쓰지 않는다 — 지난달 값이 이번 달로 새면 안 되니까) */
+  let fromSnap = false;
+  if(!principal){
+    const s = latestSnap();
+    if(s && s.principal){ principal = s.principal; fromSnap = true; }
+  }
+  const pl = principal ? investTotal - principal : 0;
+  return {g, investTotal, principal, contrib, pl, fromSnap,
+          rate: principal ? pl/principal : 0, total, totalExReal};
+}
+
+/* 모든 계좌의 종목을 하나로 모아 비중 계산 */
+function allHoldings(){
+  const out = [];
+  S.assets.forEach(a=>{
+    (a.holdings||[]).forEach(h=>{
+      const qty = Number(h.qty)||0, price = Number(h.price)||0, avg = Number(h.avg)||0;
+      const v = qty*price, cost = qty*avg;
+      if(!v && !cost) return;
+      out.push({name:h.name, acct:a.name, group:a.group, qty, price, avg, v, cost, pl:v-cost});
+    });
+  });
+  return out.sort((x,y)=> y.v - x.v);
+}
+/* 스냅샷: 사용자가 말한 컬럼 순서를 그대로 담는다 */
+function buildSnapshot(){
+  const t = investTotals();
+  const snap = {at: todayISO(), contrib: t.contrib, principal: t.principal,
+                invest: t.investTotal, total: t.total, totalExReal: t.totalExReal};
+  GROUPS.forEach(x=> snap[x.id] = t.g[x.id]||0);
+  return snap;
 }
 
 /* ============================== 화면: 기록 ============================== */
@@ -670,13 +822,15 @@ function viewRecord(){
 
   return `
   <section>
+   <div class="cols cols-rec">
+    <div class="colA">
     <div class="amount-stage">
       <div class="kindtoggle" role="group" aria-label="수입/지출">
         <button data-kind="ex" aria-pressed="${UI.kind==="ex"}">지출</button>
         <button data-kind="in" aria-pressed="${UI.kind==="in"}">수입</button>
       </div>
       <div class="bigamt" style="color:${UI.amount? (UI.kind==="in"?"var(--accent)":"var(--ink)") : "var(--ink3)"}">
-        <span>${UI.amount? won(UI.amount) : "0"}</span><span class="w">원</span>
+        <span>${UI.amount? won(UI.amount) : "0"}</span><span class="caret" aria-hidden="true"></span><span class="w">원</span>
       </div>
       <div class="datepick">
         <input type="date" id="dpick" value="${UI.date}" max="2099-12-31">
@@ -700,12 +854,20 @@ function viewRecord(){
         <span class="dot" style="background:${catColor(c)}"></span>${esc(c.name)}</button>`).join("")}
     </div>
 
-    <h2 class="sec">금액</h2>
-    <div class="keypad">
+    <h2 class="sec keypad-sec">금액</h2>
+    <div class="keypad keypad-sec">
       ${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-key="${n}">${n}</button>`).join("")}
       <button data-key="00">00</button>
       <button data-key="0">0</button>
       <button data-key="del" class="util">지우기</button>
+    </div>
+    <div class="kbdhint">
+      <span><kbd>0</kbd>–<kbd>9</kbd> 금액</span>
+      <span><kbd>⌫</kbd> 지우기</span>
+      <span><kbd>Enter</kbd> 기록</span>
+      <span><kbd>M</kbd> 메모</span>
+      <span><kbd>T</kbd> 지출·수입</span>
+      <span><kbd>[</kbd><kbd>]</kbd> 달 이동</span>
     </div>
 
     <div class="stack" style="margin-top:14px">
@@ -716,6 +878,8 @@ function viewRecord(){
       <button class="btn" id="saveTx" ${UI.amount?"":"disabled"}>${UI.amount? won(UI.amount)+"원 기록" : "금액을 입력하세요"}</button>
     </div>
 
+    </div>
+    <div class="colB">
     <h2 class="sec">${ymLabel(UI.month)} 현황</h2>
     <div class="tiles">
       <div class="tile"><div class="k">수입</div><div class="v" style="color:var(--accent)">${won(s.income)}</div></div>
@@ -725,8 +889,27 @@ function viewRecord(){
 
     ${recent.length?`<h2 class="sec">최근 기록</h2>
     <div class="card rows">${recent.map(rowHTML).join("")}</div>`:""}
+    </div>
+   </div>
   </section>`;
 }
+/* 금액 입력 — 키패드 버튼과 물리 키보드가 같이 쓴다 */
+function pushKey(k){
+  if(k==="del")        UI.amount = Math.floor(UI.amount/10);
+  else if(k==="clear") UI.amount = 0;
+  else                 UI.amount = Math.min(9999999999, UI.amount*(k==="00"?100:10) + Number(k));
+  syncAmountUI();
+}
+function syncAmountUI(){
+  const b = $(".bigamt");
+  if(b){
+    b.firstElementChild.textContent = UI.amount ? won(UI.amount) : "0";
+    b.style.color = UI.amount ? (UI.kind==="in"?"var(--accent)":"var(--ink)") : "var(--ink3)";
+  }
+  const sb = $("#saveTx");
+  if(sb){ sb.disabled = !UI.amount; sb.textContent = UI.amount ? won(UI.amount)+"원 기록" : "금액을 입력하세요"; }
+}
+
 function rowHTML(it){
   const c = catById(it.c);
   return `<button class="row" data-item="${it.id}" data-ym="${ymOf(it.d)}">
@@ -749,6 +932,8 @@ function viewList(){
   const miss = missingRecurring(UI.month);
 
   return `<section>
+   <div class="cols cols-list">
+    <div class="colB">
     <div class="tiles">
       <div class="tile"><div class="k">수입</div><div class="v" style="color:var(--accent)">${won(s.income)}</div></div>
       <div class="tile"><div class="k">지출</div><div class="v" style="color:var(--expense)">${won(s.net)}</div></div>
@@ -757,6 +942,8 @@ function viewList(){
     ${miss.length?`<div class="banner" style="margin-top:14px">
       <div><div class="t">고정비 ${miss.length}건 미입력</div><div class="s">${miss.map(r=>r.name).join(" · ")}</div></div>
       <button id="addAllRec">한번에 넣기</button></div>`:""}
+    </div>
+    <div class="colA">
     <div class="hstack" style="margin:16px 0 10px">
       ${[["all","전체"],["ex","지출"],["in","수입"],["once","일회성"]].map(([k,n])=>
         `<button class="quick" data-filter="${k}" style="${UI.filter===k?"border-color:var(--accent);color:var(--accent);font-weight:600":""}">${n}</button>`).join("")}
@@ -769,6 +956,8 @@ function viewList(){
           + groups[d].map(rowHTML).join("");
       }).join("") : `<div class="empty">${ymLabel(UI.month)}에 기록이 없어요.<br>기록 탭에서 첫 줄을 남겨보세요.</div>`}
     </div>
+    </div>
+   </div>
   </section>`;
 }
 
@@ -777,7 +966,7 @@ function viewStats(){
   const ym = UI.month, s = summarize(ym), prev = summarize(shiftYM(ym,-1));
   const f = forecast(ym);
   const months = allMonths().slice(-6);
-  const nowYm = ymOf(todayISO()), liveInvest = assetTotals().g.invest || 0;
+  const nowYm = ymOf(todayISO()), liveInvest = assetTotals().investTotal || 0;
   let carry = 0;
   const series = months.map(m=>{
     const x = summarize(m);
@@ -821,6 +1010,7 @@ function viewStats(){
       : `<div class="empty" style="padding:12px">아직 지출 기록이 없어요.</div>`}
     </div>
 
+    <div class="cols cols-half"><div class="colA">
     ${budgets.length?`<h2 class="sec">예산</h2>
     <div class="card">${budgets.map(b=>{
       const c = catById(b.cid), r = b.limit? b.used/b.limit : 0;
@@ -833,7 +1023,7 @@ function viewStats(){
         <div class="track"><i style="width:${Math.min(100,r*100).toFixed(1)}%;background:var(--${st==="crit"?"crit":st==="warn"?"warn":"good"})"></i></div></div>`;
     }).join("")}</div>
     <div class="note" style="margin-top:8px">예산은 설정 탭에서 바꿀 수 있어요.</div>`:""}
-
+    </div><div class="colB">
     <h2 class="sec">카테고리 지출</h2>
     <div class="card">${ranks.length? ranks.map(([cid,v])=>{
       const c=catById(cid), p=prev.byCat[cid]||0;
@@ -844,6 +1034,7 @@ function viewStats(){
       </div>`;
     }).join("") : `<div class="empty">지출 기록이 없어요.</div>`}</div>
     <div class="note" style="margin-top:8px">오른쪽 숫자는 ${ymLabel(shiftYM(ym,-1))} 대비 증감이에요.</div>
+    </div></div>
 
     <h2 class="sec">월별 흐름</h2>
     <div class="card pad">
@@ -858,9 +1049,15 @@ function viewStats(){
 }
 function deltaText(a,b){ const d=a-b; if(!b) return "&nbsp;"; return (d>0?"▲ ":"▼ ")+won(Math.abs(d))+" vs 지난달"; }
 
+/* 화면 폭에 맞춘 차트 너비. frac=1 전체폭, 0.5 반폭 */
+function cw(frac){
+  const wide = window.innerWidth >= 1080;
+  const avail = wide ? Math.min(window.innerWidth - 300, 1040) : window.innerWidth - 62;
+  return Math.max(300, Math.round(avail * (wide ? (frac||1) : 1)) - 30);
+}
 function barChart(series){
   if(!series.length) return `<div class="empty">데이터가 없어요.</div>`;
-  const W = Math.max(320, series.length*84+56), H=190, PL=52, PR=10, PT=12, PB=30;
+  const W = Math.max(cw(1), series.length*84+56), H=190, PL=52, PR=10, PT=12, PB=30;
   const max = Math.max(1, ...series.flatMap(d=>[d.income,d.expense,d.invest]));
   const step = niceStep(max), top = Math.ceil(max/step)*step;
   const iw = (W-PL-PR)/series.length, bw = Math.min(15, (iw-14)/3);
@@ -899,28 +1096,37 @@ function shortWon(v){
 
 /* ============================== 화면: 자산 ============================== */
 function viewAssets(){
-  const {g,total} = assetTotals();
+  const t = investTotals();
+  const g = t.g, total = t.total;
   const snapKeys = Object.keys(S.snaps).sort();
   const pts = snapKeys.map(k=>({m:k, v:S.snaps[k].total||0}));
   const nowYm = ymOf(todayISO());
   if(!pts.length || pts[pts.length-1].m!==nowYm) pts.push({m:nowYm, v:total, live:true});
-  const prev = pts.length>1? pts[pts.length-2].v : null;
+  const prev = pts.length>1 ? pts[pts.length-2].v : null;
 
   const byGroup = GROUPS.map(gr=>({...gr, v:g[gr.id]||0, items:S.assets.filter(a=>a.group===gr.id)}))
                         .filter(gr=>gr.items.length);
   const posTotal = GROUPS.reduce((a,gr)=> a + Math.max(0,g[gr.id]||0), 0) || 1;
-  const shades = {cash:"var(--accent)", invest:"var(--invest)", real:"var(--expense)", pension:"var(--warn)", insure:"var(--ink3)", debt:"var(--crit)"};
 
   return `<section>
     <div class="hero">
       <div class="k">순자산</div>
       <div class="v">${won(total)}<span style="font-family:'IBM Plex Sans KR';font-size:18px;font-weight:500;color:var(--ink2)"> 원</span></div>
       <div class="d">${prev==null? "첫 스냅샷" : total===prev? ymLabel(pts[pts.length-2].m)+"과 같음"
-        : (total>prev?"▲ ":"▼ ")+won(Math.abs(total-prev))+"원 vs "+ymLabel(pts[pts.length-2].m)} · 현금 ${won(g.cash)} · 투자 ${won(g.invest)}</div>
+        : (total>prev?"▲ ":"▼ ")+won(Math.abs(total-prev))+"원 vs "+ymLabel(pts[pts.length-2].m)}
+        · 부동산 제외 ${won(t.totalExReal)}</div>
       <div style="margin-top:14px" class="splitbar">
         ${GROUPS.filter(gr=>(g[gr.id]||0)>0).map(gr=>
-          `<div style="flex:${g[gr.id]};background:${shades[gr.id]}" title="${gr.name}">${g[gr.id]/posTotal>0.16?gr.name:""}</div>`).join("")}
+          `<div style="flex:${g[gr.id]};background:${GSHADE[gr.id]}" title="${gr.name} ${won(g[gr.id])}">${g[gr.id]/posTotal>0.15?gr.name:""}</div>`).join("")}
       </div>
+    </div>
+
+    <div class="tiles" style="margin-top:14px">
+      <div class="tile"><div class="k">현금·예금</div><div class="v">${won(g.cash||0)}</div></div>
+      <div class="tile"><div class="k">투자 평가액</div><div class="v" style="color:var(--invest)">${won(t.investTotal)}</div>
+        <div class="d">${t.principal? (t.pl>=0?"+":"")+shortWon(t.pl)+" ("+(t.rate*100).toFixed(1)+"%)" : "원금 미입력"}</div></div>
+      <div class="tile"><div class="k">청약·부동산 등</div><div class="v">${won((g.housing||0)+(g.real||0)+(g.insure||0)+(g.debt||0))}</div>
+        <div class="d">${g.housing?"청약 "+shortWon(g.housing):"&nbsp;"}</div></div>
     </div>
 
     ${pts.length>1?`<h2 class="sec">순자산 추이</h2>
@@ -929,23 +1135,24 @@ function viewAssets(){
 
     <div class="hstack" style="margin-top:16px">
       <button class="btn sm" id="snapNow">${ymLabel(nowYm)} 스냅샷 저장</button>
-      <button class="btn sm ghost" id="addAsset">＋ 자산 추가</button>
+      <button class="btn sm ghost" id="addAsset">＋ 계좌·자산 추가</button>
     </div>
 
+    <div class="assetgrid" style="margin-top:14px">
     ${byGroup.map(gr=>`
-      <div class="card" style="margin-top:14px">
+      <div class="card">
         <div class="grouphead">${gr.name}<span class="gv">${won(gr.v)}</span></div>
         <div class="rows">${gr.items.map(a=>{
           const v = assetValue(a);
-          const hs = (a.holdings||[]);
-          const cost = hs.reduce((s,h)=>s+(Number(h.qty)||0)*(Number(h.avg)||0),0);
-          const pl = cost? v-cost : 0;
+          const hs = a.holdings||[];
+          const cost = Number(a.principal)||hs.reduce((s,h)=>s+(Number(h.qty)||0)*(Number(h.avg)||0),0);
+          const pl = cost ? v-cost : 0;
           return `<button class="row" data-asset="${a.id}">
-              <span class="dot" style="background:${shades[gr.id]}"></span>
+              <span class="dot" style="background:${GSHADE[gr.id]}"></span>
               <span class="grow"><span class="nm">${esc(a.name)}</span>
                 ${a.note&&!v?`<span class="mm needs"> ${esc(a.note)}</span>`:""}
                 ${a.group==="real"&&a.loan?`<span class="mm"> 시세 ${shortWon(a.value)} − 대출 ${shortWon(a.loan)}</span>`:""}
-                ${cost?`<span class="mm ${pl>=0?"up":"down"}" style="color:${pl>=0?"var(--crit)":"var(--invest)"}"> ${pl>=0?"+":""}${won(pl)} (${(pl/cost*100).toFixed(1)}%)</span>`:""}
+                ${cost&&v?`<span class="mm" style="color:${pl>=0?"var(--crit)":"var(--invest)"}"> ${pl>=0?"+":""}${won(pl)} (${(pl/cost*100).toFixed(1)}%)</span>`:""}
               </span>
               <span class="amt num">${won(v)}</span>
             </button>`
@@ -953,12 +1160,146 @@ function viewAssets(){
                  <span class="amt">${won((Number(h.qty)||0)*(Number(h.price)||0))}</span></div>`).join("");
         }).join("")}</div>
       </div>`).join("")}
+    </div>
 
-    <div class="note" style="margin-top:14px">시세는 자동으로 안 들어와요. 투자 계좌를 눌러 종목별 현재가를 가끔 갱신해 주세요.</div>
+    <div class="note" style="margin:14px 0 30px">시세는 자동으로 안 들어와요. 계좌를 눌러 종목별 현재가를 가끔 갱신하거나,
+      구글 시트를 연결했다면 <b>종목</b> 탭에서 현재가만 고쳐도 반영돼요.</div>
   </section>`;
 }
+
+/* ══════════ 투자 탭 ══════════ */
+function viewInvest(){
+  const t = investTotals();
+  const nowYm = ymOf(todayISO());
+  const holds = allHoldings();
+  const holdTotal = holds.reduce((s,h)=>s+h.v,0);
+
+  /* 월별 표 — 스냅샷 + 이번 달 현재값 */
+  const rows = Object.keys(S.snaps).sort().map(m=>({m, ...S.snaps[m]}));
+  if(!rows.length || rows[rows.length-1].m !== nowYm) rows.push({m:nowYm, live:true, ...buildSnapshot()});
+  rows.forEach((r,i)=>{ r.delta = i ? (r.totalExReal||0)-(rows[i-1].totalExReal||0) : null; });
+
+  const investGroups = GROUPS.filter(x=>x.invest).map(x=>({...x, v:t.g[x.id]||0})).filter(x=>x.v>0);
+  const invSum = investGroups.reduce((s,x)=>s+x.v,0) || 1;
+
+  const chartPts = rows.map(r=>({m:r.m, v:r.invest||0, p:r.principal||0}));
+  const hasPrincipal = chartPts.some(p=>p.p>0);
+
+  return `<section>
+    <div class="tiles">
+      <div class="tile"><div class="k">투자 평가액</div><div class="v" style="color:var(--invest)">${won(t.investTotal)}</div></div>
+      <div class="tile"><div class="k">누적 납입원금</div><div class="v">${t.principal?won(t.principal):"—"}</div>
+        <div class="d">${t.principal?"":"계좌에서 입력"}</div></div>
+      <div class="tile"><div class="k">평가손익</div>
+        <div class="v" style="color:${t.principal? (t.pl>=0?"var(--crit)":"var(--invest)") : "var(--ink3)"}">${t.principal?(t.pl>=0?"+":"")+won(t.pl):"—"}</div>
+        <div class="d">${t.principal?(t.rate*100).toFixed(1)+"%":"원금 입력 필요"}</div></div>
+    </div>
+
+    <div class="cols cols-half" style="margin-top:6px">
+      <div class="colA">
+        <h2 class="sec">계좌별 비중</h2>
+        <div class="card pad">
+          ${investGroups.length? `<div class="splitbar">
+            ${investGroups.map(x=>`<div style="flex:${x.v};background:${GSHADE[x.id]}" title="${x.name}">${x.v/invSum>0.14?Math.round(x.v/invSum*100)+"%":""}</div>`).join("")}
+          </div>
+          <div class="rows" style="margin-top:12px">
+            ${investGroups.map(x=>`<div class="row" style="padding-left:0;padding-right:0">
+              <span class="dot" style="background:${GSHADE[x.id]}"></span>
+              <span class="grow"><span class="nm">${x.name}</span></span>
+              <span class="mm num" style="margin-left:auto">${(x.v/invSum*100).toFixed(1)}%</span>
+              <span class="amt num" style="margin-left:14px">${won(x.v)}</span></div>`).join("")}
+          </div>`
+          : `<div class="empty">투자 계좌 평가액이 아직 0이에요.<br>자산 탭에서 ISA·해외직투 금액을 넣어주세요.</div>`}
+        </div>
+        ${chartPts.length>1?`<h2 class="sec">평가액 vs 납입원금</h2>
+        <div class="card pad"><div class="chartwrap">${investChart(chartPts, hasPrincipal)}</div>
+          <div class="legend"><span><i style="background:var(--invest)"></i>평가액</span>
+          ${hasPrincipal?`<span><i style="background:var(--ink3)"></i>누적 납입원금</span>`:""}</div>
+          ${hasPrincipal?`<div class="note" style="margin-top:8px">두 선 사이가 벌어진 만큼이 평가손익이에요.</div>`:""}
+        </div>`:""}
+      </div>
+      <div class="colB">
+        <h2 class="sec">종목별 비중</h2>
+        <div class="card">
+          ${holds.length? holds.map(h=>`<div class="rank">
+            <div class="n">${esc(h.name)} <span class="mm" style="font-weight:400">· ${esc(h.acct)}</span></div>
+            <div class="v">${won(h.v)}</div>
+            <div class="bar"><i style="width:${(h.v/(holds[0].v||1)*100).toFixed(1)}%;background:var(--invest)"></i></div>
+            <div class="delta">${(h.v/(holdTotal||1)*100).toFixed(1)}%${h.cost?` · <span style="color:${h.pl>=0?"var(--crit)":"var(--invest)"}">${h.pl>=0?"+":""}${shortWon(h.pl)}</span>`:""}</div>
+          </div>`).join("")
+          : `<div class="empty">등록된 종목이 없어요.<br>자산 탭에서 계좌를 누르고 종목·수량·평단·현재가를 넣으면<br>여기에 비중이 나와요.</div>`}
+        </div>
+      </div>
+    </div>
+
+    <h2 class="sec">월별 투자 기록</h2>
+    <div class="card" style="overflow-x:auto">
+      <table class="dtable">
+        <thead><tr>
+          <th>월</th><th>당월 납입</th><th>누적 원금</th>
+          <th>ISA</th><th>해외직투</th><th>국내주식</th><th>연금</th><th>주택청약</th>
+          <th>투자 평가액</th><th>현금</th><th>순자산(부동산 제외)</th><th>전월 대비</th>
+        </tr></thead>
+        <tbody>
+        ${rows.map(r=>`<tr class="${r.live?"now":""}">
+          <td class="hl">${ymLabel(r.m)}${r.live?' <span class="mm">현재</span>':""}</td>
+          ${[r.contrib,r.principal,r.isa,r.overseas,r.domestic,r.pension,r.housing]
+              .map(v=>`<td class="${v?"":"z"}">${v?won(v):"—"}</td>`).join("")}
+          <td class="hl">${won(r.invest||0)}</td>
+          <td class="${r.cash?"":"z"}">${r.cash?won(r.cash):"—"}</td>
+          <td class="hl">${won(r.totalExReal||0)}</td>
+          <td style="color:${!r.delta?"var(--ink3)":r.delta>0?"var(--good)":"var(--crit)"}">
+            ${!r.delta?"—":(r.delta>0?"▲":"▼")+won(Math.abs(r.delta))}</td>
+        </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:8px">회색 <b>—</b> 는 아직 값이 없는 칸이에요.
+      자산 탭에서 계좌마다 <b>누적 납입원금</b>과 <b>당월 납입액</b>을 넣으면 채워집니다.
+      맨 아래 줄은 지금 이 순간의 값이고, <b>스냅샷 저장</b>을 눌러야 기록으로 굳어져요.</div>
+
+    <div class="hstack" style="margin:16px 0 30px">
+      <button class="btn sm" id="snapNow">${ymLabel(nowYm)} 스냅샷 저장</button>
+      <button class="btn sm ghost" id="addAsset">＋ 계좌 추가</button>
+      <button class="btn sm ghost" id="goAssets">자산 탭에서 편집</button>
+    </div>
+  </section>`;
+}
+
+function investChart(pts, hasP){
+  const W = Math.max(cw(0.5), pts.length*76+70), H=190, PL=58, PR=28, PT=14, PB=30;
+  const max = Math.max(1, ...pts.map(p=>Math.max(p.v, hasP?p.p:0)));
+  const step = niceStep(max), top = Math.ceil(max/step)*step;
+  const x = i => PL + (W-PL-PR) * (pts.length===1?0.5:i/(pts.length-1));
+  const y = v => PT + (H-PT-PB) * (1 - v/top);
+  let g="";
+  for(let v=0; v<=top+1; v+=step)
+    g += `<line class="grid" x1="${PL}" x2="${W-PR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line>
+          <text x="${PL-7}" y="${(y(v)+3.5).toFixed(1)}" text-anchor="end">${v===0?"0":shortWon(v)}</text>`;
+  const dv = pts.map((p,i)=>`${i?"L":"M"}${x(i).toFixed(1)} ${y(p.v).toFixed(1)}`).join(" ");
+  const area = dv+` L${x(pts.length-1).toFixed(1)} ${y(0).toFixed(1)} L${x(0).toFixed(1)} ${y(0).toFixed(1)} Z`;
+  const dp = hasP ? pts.map((p,i)=>`${i?"L":"M"}${x(i).toFixed(1)} ${y(p.p).toFixed(1)}`).join(" ") : "";
+  const marks = pts.map((p,i)=>{
+    const last = i===pts.length-1;
+    return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="${last?5:3.5}" fill="${last?"var(--invest)":"var(--surface)"}" stroke="var(--invest)" stroke-width="2"></circle>
+    <rect class="hit" x="${(x(i)-26).toFixed(1)}" y="${PT}" width="52" height="${H-PT-PB}" fill="transparent"
+      data-tip="${esc(JSON.stringify({t:ymLabel(p.m), rows: hasP
+        ? [["평가액",p.v,"var(--invest)"],["납입원금",p.p,"var(--ink3)"],["평가손익",p.v-p.p,p.v>=p.p?"var(--crit)":"var(--good)"]]
+        : [["평가액",p.v,"var(--invest)"]]}))}"></rect>
+    <text class="lbl" x="${x(i).toFixed(1)}" y="${H-PB+16}" text-anchor="middle">${p.m.slice(5)}월</text>`;
+  }).join("");
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="투자 평가액과 납입원금 추이">
+    <defs><linearGradient id="ig" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--invest)" stop-opacity=".22"></stop>
+      <stop offset="100%" stop-color="var(--invest)" stop-opacity="0"></stop></linearGradient></defs>
+    ${g}<path d="${area}" fill="url(#ig)"></path>
+    ${hasP?`<path d="${dp}" fill="none" stroke="var(--ink3)" stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round"></path>`:""}
+    <path d="${dv}" fill="none" stroke="var(--invest)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+    ${marks}</svg>`;
+}
+
 function lineChart(pts){
-  const W = Math.max(320, pts.length*70+60), H=170, PL=54, PR=14, PT=14, PB=28;
+  const W = Math.max(cw(1), pts.length*70+60), H=170, PL=54, PR=26, PT=14, PB=28;
   const vals = pts.map(p=>p.v);
   const max = Math.max(1,...vals), min = Math.min(0,...vals);
   const step = niceStep(max-min||max), top = Math.ceil(max/step)*step, bot = Math.floor(min/step)*step;
@@ -994,6 +1335,8 @@ function viewSettings(){
   const rec = S.settings.recurring, buds = S.settings.budgets;
   const exCats = S.settings.cats.filter(c=>c.kind==="ex");
   return `<section>
+   <div class="setgrid">
+    <div class="setblk">
     <h2 class="sec">고정비 (매달 자동 제안)</h2>
     <div class="card rows">
       ${rec.map(r=>`<button class="row" data-rec="${r.id}">
@@ -1002,7 +1345,9 @@ function viewSettings(){
         <span class="amt num">${won(r.amount)}</span></button>`).join("")}
       <button class="row" id="addRec" style="color:var(--ink2)"><span class="grow">＋ 고정비 추가</span></button>
     </div>
+    </div>
 
+    <div class="setblk">
     <h2 class="sec">예산</h2>
     <div class="card rows">
       ${exCats.map(c=>`<button class="row" data-bud="${c.id}">
@@ -1011,7 +1356,9 @@ function viewSettings(){
         <span class="amt num" style="color:${buds[c.id]?"var(--ink)":"var(--ink3)"}">${buds[c.id]?won(buds[c.id]):"설정 안 함"}</span></button>`).join("")}
     </div>
     <div class="note" style="margin-top:8px">초기값은 8월 실제 지출을 보고 넣어둔 값이에요. 눌러서 바꾸세요.</div>
+    </div>
 
+    <div class="setblk">
     <h2 class="sec">분류</h2>
     <div class="card rows">
       ${S.settings.cats.map(c=>`<button class="row" data-cate="${c.id}">
@@ -1020,7 +1367,9 @@ function viewSettings(){
         <span class="mm">수정</span></button>`).join("")}
       <button class="row" id="addCat" style="color:var(--ink2)"><span class="grow">＋ 분류 추가</span></button>
     </div>
+    </div>
 
+    <div class="setblk">
     <h2 class="sec">퀵버튼</h2>
     <div class="card rows">
       ${S.settings.quick.map((q,i)=>`<button class="row" data-quickedit="${i}">
@@ -1028,7 +1377,9 @@ function viewSettings(){
         <span class="amt num">${won(q.amount)}</span></button>`).join("")}
       <button class="row" id="addQuick" style="color:var(--ink2)"><span class="grow">＋ 퀵버튼 추가</span></button>
     </div>
+    </div>
 
+    <div class="setblk">
     <h2 class="sec">동기화</h2>
     <div class="card rows">
       ${SYNC.url? `
@@ -1047,7 +1398,9 @@ function viewSettings(){
       `}
     </div>
     ${SYNC.url?"":`<div class="note" style="margin-top:8px">연결하지 않으면 이 브라우저에만 저장돼요. 폰과 PC가 따로 놉니다.</div>`}
+    </div>
 
+    <div class="setblk">
     <h2 class="sec">가져오기 · 내보내기</h2>
     <div class="card rows">
       <button class="row" id="doImport"><span class="grow"><span class="nm">CSV 가져오기</span> <span class="mm">엑셀 표를 그대로 붙여넣기</span></span><span class="mm">›</span></button>
@@ -1055,12 +1408,16 @@ function viewSettings(){
       <button class="row" id="expCsv"><span class="grow"><span class="nm">전체 CSV로 내보내기</span> <span class="mm">거래 내역 한 장</span></span><span class="mm">›</span></button>
       <button class="row" id="expJson"><span class="grow"><span class="nm">백업 파일(JSON)</span> <span class="mm">그대로 되돌릴 수 있는 원본</span></span><span class="mm">›</span></button>
     </div>
+    </div>
 
+    <div class="setblk">
     <h2 class="sec">데이터</h2>
     <div class="card rows">
       <button class="row" id="resetAll" style="color:var(--crit)"><span class="grow">전체 초기화</span></button>
     </div>
     <div class="note" style="margin:10px 0 30px">기록은 이 링크에 저장돼요. 같은 계정으로 폰·PC 어디서 열어도 같은 데이터가 보입니다.</div>
+    </div>
+   </div>
   </section>`;
 }
 
@@ -1068,7 +1425,7 @@ function viewSettings(){
 function render(){
   $("#mlabel").textContent = ymLabel(UI.month);
   $$(".tabs button").forEach(b=> b.setAttribute("aria-current", b.dataset.tab===UI.tab?"page":"false"));
-  const v = {record:viewRecord, list:viewList, stats:viewStats, assets:viewAssets, settings:viewSettings}[UI.tab];
+  const v = {record:viewRecord, list:viewList, stats:viewStats, assets:viewAssets, invest:viewInvest, settings:viewSettings}[UI.tab];
   $("#main").innerHTML = v();
   window.scrollTo({top:0});
 }
@@ -1146,25 +1503,42 @@ function openItemSheet(ym,id){
     });
 }
 function openAssetSheet(id){
-  const a = S.assets.find(x=>x.id===id) || {id:uid(), name:"", group:"cash", value:0, holdings:[]};
-  const isNew = !S.assets.some(x=>x.id===id);
+  const a = S.assets.find(x=>x.id===id) || {id:id, name:"", group:"isa", value:0, principal:0, monthly:0, holdings:[]};
+  const isNew = !S.assets.some(x=>x.id===a.id);
   const hs = a.holdings||[];
-  openSheet(`<h3>${isNew?"자산 추가":esc(a.name)}</h3>
-    <div class="field"><label>이름</label><input id="a_n" value="${esc(a.name)}" placeholder="예: 오피스텔, 연금저축, 국내주식 계좌"></div>
+  const inv = isInvestGroup(a.group);
+  openSheet(`<h3>${isNew?"계좌·자산 추가":esc(a.name)}</h3>
+    <div class="field"><label>이름</label><input id="a_n" value="${esc(a.name)}" placeholder="예: 미래에셋 ISA, 키움 해외주식"></div>
     <div class="field"><div class="row2">
       <div><label>구분</label><select id="a_g">${GROUPS.map(g=>`<option value="${g.id}" ${g.id===a.group?"selected":""}>${g.name}</option>`).join("")}</select></div>
-      <div><label>금액 (원)</label><input id="a_v" type="number" inputmode="numeric" value="${Number(a.value)||0}"></div>
+      <div><label>평가액 (원)</label><input id="a_v" type="number" inputmode="numeric" value="${Number(a.value)||0}"></div>
     </div></div>
-    <div class="field" id="loanF" ${a.group==="real"?"":"hidden"}><label>대출 잔액 (원)</label><input id="a_l" type="number" inputmode="numeric" value="${Number(a.loan)||0}"></div>
-    <div class="field" id="monF" ${(a.group==="pension"||a.group==="insure")?"":"hidden"}><label>월 납입액 (원)</label><input id="a_mo" type="number" inputmode="numeric" value="${Number(a.monthly)||0}"></div>
-    <div id="holdF" ${a.group==="invest"?"":"hidden"}>
+
+    <div id="invF" ${inv?"":"hidden"}>
+      <div class="field"><div class="row2">
+        <div><label>누적 납입원금 (원)</label><input id="a_p" type="number" inputmode="numeric" value="${Number(a.principal)||0}"></div>
+        <div><label>당월 납입액 (원)</label><input id="a_mo" type="number" inputmode="numeric" value="${Number(a.monthly)||0}"></div>
+      </div>
+      <div class="note">지금까지 넣은 원금과 이번 달에 넣은 금액. 투자 탭의 평가손익·수익률이 이걸로 계산돼요.</div></div>
+    </div>
+
+    <div class="field" id="loanF" ${a.group==="real"?"":"hidden"}><label>대출 잔액 (원)</label>
+      <input id="a_l" type="number" inputmode="numeric" value="${Number(a.loan)||0}"></div>
+    <div class="field" id="insF" ${a.group==="insure"?"":"hidden"}><label>월 납입액 (원)</label>
+      <input id="a_mi" type="number" inputmode="numeric" value="${Number(a.monthly)||0}"></div>
+
+    <div id="holdF" ${inv?"":"hidden"}>
       <h2 class="sec" style="margin-top:18px">종목</h2>
       <div class="card rows" id="holdList">
-        ${hs.map((h,i)=>`<div class="row"><span class="grow"><span class="nm">${esc(h.name)}</span>
-          <span class="mm">${h.qty}주 · 평단 ${won(h.avg)}</span></span>
-          <span class="amt num">${won((Number(h.qty)||0)*(Number(h.price)||0))}</span>
-          <button class="tag" data-delhold="${i}">삭제</button></div>`).join("")
-          || `<div class="empty" style="padding:16px">종목을 넣으면 평가액이 자동 합산돼요.<br>비워두면 위 금액을 그대로 씁니다.</div>`}
+        ${hs.map((h,i)=>{
+          const v=(Number(h.qty)||0)*(Number(h.price)||0), c=(Number(h.qty)||0)*(Number(h.avg)||0);
+          return `<div class="row"><span class="grow"><span class="nm">${esc(h.name)}</span>
+            <span class="mm">${h.qty}주 · 평단 ${won(h.avg)} → ${won(h.price)}</span>
+            ${c?`<span class="mm" style="color:${v>=c?"var(--crit)":"var(--invest)"}"> ${v>=c?"+":""}${won(v-c)}</span>`:""}</span>
+            <span class="amt num">${won(v)}</span>
+            <button class="tag" data-delhold="${i}">삭제</button></div>`;
+        }).join("")
+          || `<div class="empty" style="padding:16px">종목을 넣으면 평가액이 자동 합산되고<br>투자 탭에 비중이 나와요. 비워두면 위 평가액을 그대로 씁니다.</div>`}
       </div>
       <div class="field" style="margin-top:10px"><div class="row2">
         <input id="h_n" placeholder="종목명"><input id="h_q" type="number" inputmode="decimal" placeholder="수량">
@@ -1174,37 +1548,53 @@ function openAssetSheet(id){
       </div></div>
       <button class="btn ghost" id="h_add" style="margin-bottom:14px">종목 추가</button>
     </div>
+
     <div class="stack"><button class="btn" id="a_save">저장</button>
     ${isNew?"":`<button class="btn danger" id="a_del">이 자산 삭제</button>`}</div>`, ()=>{
       const g=$("#a_g");
-      g.onchange=()=>{ $("#loanF").hidden = g.value!=="real";
-        $("#monF").hidden = !(g.value==="pension"||g.value==="insure");
-        $("#holdF").hidden = g.value!=="invest"; };
+      const refresh = ()=>{
+        const iv = isInvestGroup(g.value);
+        $("#invF").hidden  = !iv;
+        $("#holdF").hidden = !iv;
+        $("#loanF").hidden = g.value!=="real";
+        $("#insF").hidden  = g.value!=="insure";
+      };
+      g.onchange = refresh;
       const commit = extra => {
-        const next = {...a, name:$("#a_n").value.trim()||"이름 없음", group:g.value,
-          value:Number($("#a_v").value)||0, loan:Number(($("#a_l")||{}).value)||0,
-          monthly:Number(($("#a_mo")||{}).value)||0, holdings:a.holdings||[], note:"", ...extra};
+        const iv = isInvestGroup(g.value);
+        const next = {...a,
+          name: $("#a_n").value.trim()||"이름 없음",
+          group: g.value,
+          value: Number($("#a_v").value)||0,
+          principal: iv ? (Number($("#a_p").value)||0) : 0,
+          monthly: iv ? (Number($("#a_mo").value)||0)
+                      : (g.value==="insure" ? (Number(($("#a_mi")||{}).value)||0) : 0),
+          loan: Number(($("#a_l")||{}).value)||0,
+          holdings: a.holdings||[],
+          note: "", ...extra};
         const i = S.assets.findIndex(x=>x.id===a.id);
         if(i<0) S.assets.push(next); else S.assets[i]=next;
         persist("assets");
         return next;
       };
+      const reopen = ()=>{ closeSheet(); render(); setTimeout(()=>openAssetSheet(a.id),140); };
       $("#h_add") && ($("#h_add").onclick=()=>{
-        const n=$("#h_n").value.trim(); if(!n) return;
+        const n=$("#h_n").value.trim(); if(!n) return toast("종목명을 넣어주세요");
         a.holdings = a.holdings||[];
-        a.holdings.push({name:n, qty:Number($("#h_q").value)||0, avg:Number($("#h_a").value)||0, price:Number($("#h_p").value)||Number($("#h_a").value)||0});
-        commit({}); closeSheet(); render(); setTimeout(()=>openAssetSheet(a.id),120);
+        a.holdings.push({name:n, qty:Number($("#h_q").value)||0, avg:Number($("#h_a").value)||0,
+                         price:Number($("#h_p").value)||Number($("#h_a").value)||0});
+        commit({}); reopen();
       });
       $$("[data-delhold]").forEach(b=> b.onclick=e=>{ e.stopPropagation();
-        a.holdings.splice(Number(b.dataset.delhold),1); commit({}); closeSheet(); render(); setTimeout(()=>openAssetSheet(a.id),120); });
+        a.holdings.splice(Number(b.dataset.delhold),1); commit({}); reopen(); });
       $("#a_save").onclick=()=>{ commit({}); closeSheet(); render(); toast("저장했어요"); };
-      $("#a_del") && ($("#a_del").onclick=()=>{ S.assets=S.assets.filter(x=>x.id!==a.id); persist("assets"); closeSheet(); render(); toast("삭제했어요"); });
+      $("#a_del") && ($("#a_del").onclick=()=>{ S.assets=S.assets.filter(x=>x.id!==a.id);
+        persist("assets"); closeSheet(); render(); toast("삭제했어요"); });
     });
 }
 function snapshotNow(){
-  const {g,total} = assetTotals();
   const ym = ymOf(todayISO());
-  S.snaps[ym] = {...g, total, at:todayISO()};
+  S.snaps[ym] = buildSnapshot();
   persist("snaps"); render(); toast(ymLabel(ym)+" 스냅샷 저장");
 }
 
@@ -1359,9 +1749,25 @@ function exportXlsx(){
     return {월:m, 수입:s.income, 지출:s.net, 적립·할인:s.deduct, 평소생활비:s.living, 일회성:s.once, 남은돈:s.left};
   })), "월별요약");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(S.assets.map(a=>({
-    이름:a.name, 구분:(GROUPS.find(g=>g.id===a.group)||{}).name||a.group, 금액:assetValue(a),
-    대출잔액:a.loan||0, 월납입:a.monthly||0
+    이름:a.name, 구분:(GROUPS.find(g=>g.id===a.group)||{}).name||a.group,
+    평가액:assetValue(a), 누적납입원금:a.principal||0, 당월납입액:a.monthly||0, 대출잔액:a.loan||0
   }))), "자산");
+
+  const snapRows = Object.keys(S.snaps).sort().map(m=>{
+    const v = S.snaps[m];
+    return {월:m, "당월 투자 납입액":v.contrib||0, "누적납입원금":v.principal||0,
+      "ISA 평가액":v.isa||0, "해외직투 평가액":v.overseas||0, "국내주식 평가액":v.domestic||0,
+      "연금 평가액":v.pension||0, "주택청약누적":v.housing||0, "투자 평가액":v.invest||0,
+      "현금":v.cash||0, "총 순자산(부동산 제외)":v.totalExReal||0, "총 순자산":v.total||0};
+  });
+  snapRows.forEach((r,i)=>{ r["전월 대비 증감"] = i ? r["총 순자산(부동산 제외)"]-snapRows[i-1]["총 순자산(부동산 제외)"] : ""; });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(snapRows), "투자 월별 평가");
+
+  const hs = allHoldings(), hTot = hs.reduce((s,h)=>s+h.v,0)||1;
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hs.map(h=>({
+    계좌구분:h.acct, "투자 종목명":h.name, 보유수량:h.qty, 현재가:h.price,
+    평가금액:h.v, 실제비중:Number((h.v/hTot*100).toFixed(2))
+  }))), "종목별 포트폴리오");
   const buf = XLSX.write(wb,{bookType:"xlsx",type:"array"});
   offer("잔고와흐름_"+todayISO()+".xlsx", buf);
 }
@@ -1378,14 +1784,7 @@ document.addEventListener("click", e=>{
 
   /* 기록 */
   if(d.kind){ UI.kind=d.kind; UI.once=false; render(); return; }
-  if(d.key!==undefined){
-    if(d.key==="del") UI.amount = Math.floor(UI.amount/10);
-    else UI.amount = Math.min(9999999999, UI.amount*(d.key==="00"?100:10) + Number(d.key));
-    const b=$(".bigamt"); if(b){ b.firstElementChild.textContent = UI.amount?won(UI.amount):"0";
-      b.style.color = UI.amount ? (UI.kind==="in"?"var(--accent)":"var(--ink)") : "var(--ink3)"; }
-    const sb=$("#saveTx"); if(sb){ sb.disabled=!UI.amount; sb.textContent = UI.amount? won(UI.amount)+"원 기록":"금액을 입력하세요"; }
-    return;
-  }
+  if(d.key!==undefined){ pushKey(d.key); return; }
   if(d.cat){ UI.cat=d.cat; render(); return; }
   if(d.quick!==undefined){
     if(d.quick==="edit"){ UI.tab="settings"; render(); return; }
@@ -1407,6 +1806,7 @@ document.addEventListener("click", e=>{
   if(d.asset){ openAssetSheet(d.asset); return; }
   if(t.id==="addAsset"){ openAssetSheet("new_"+uid()); return; }
   if(t.id==="snapNow"){ snapshotNow(); return; }
+  if(t.id==="goAssets"){ UI.tab="assets"; render(); return; }
 
   /* 설정 */
   if(d.rec){ openRecSheet(d.rec); return; }
@@ -1446,7 +1846,45 @@ document.addEventListener("click", e=>{
   }
 });
 $("#scrim").addEventListener("click", closeSheet);
-document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeSheet(); });
+
+/* ══════════ 키보드 ══════════
+   데스크톱에서 마우스로 숫자패드를 누르는 대신 그냥 타이핑한다.
+   한글 입력 상태에서도 동작하도록 e.key와 e.code를 같이 본다. */
+document.addEventListener("keydown", e=>{
+  if(e.key==="Escape" && sheetOpen){ closeSheet(); return; }
+  if(sheetOpen) return;
+  if(e.metaKey || e.ctrlKey || e.altKey) return;
+
+  const el = e.target, tag = (el.tagName||"").toLowerCase();
+  const typing = tag==="input" || tag==="textarea" || tag==="select" || el.isContentEditable;
+
+  // 메모 칸에서 Enter → 바로 기록
+  if(typing){
+    if(el.id==="memo" && e.key==="Enter"){ e.preventDefault(); UI.memo = el.value; saveTx(); }
+    return;
+  }
+
+  const code = e.code||"";
+  if(e.key==="[" || code==="BracketLeft"){  e.preventDefault(); UI.month=shiftYM(UI.month,-1); render(); return; }
+  if(e.key==="]" || code==="BracketRight"){ e.preventDefault(); UI.month=shiftYM(UI.month, 1); render(); return; }
+  if(UI.tab!=="record") return;
+
+  let digit = null;
+  if(/^[0-9]$/.test(e.key)) digit = e.key;
+  else { const m = /^(?:Digit|Numpad)([0-9])$/.exec(code); if(m) digit = m[1]; }
+  if(digit !== null){ e.preventDefault(); pushKey(digit); return; }
+
+  if(e.key==="Backspace"){ e.preventDefault(); pushKey("del"); return; }
+  if(e.key==="Delete"){    e.preventDefault(); pushKey("clear"); return; }
+  if(e.key==="Enter" || e.key==="NumpadEnter"){
+    e.preventDefault();
+    if(UI.amount){ const m=$("#memo"); if(m) UI.memo=m.value; saveTx(); }
+    return;
+  }
+  if(e.key==="Escape"){ e.preventDefault(); pushKey("clear"); return; }
+  if(code==="KeyM"){ e.preventDefault(); const m=$("#memo"); if(m){ m.focus(); m.select(); } return; }
+  if(code==="KeyT"){ e.preventDefault(); UI.kind = UI.kind==="ex"?"in":"ex"; UI.once=false; render(); return; }
+});
 document.addEventListener("change", e=>{ if(e.target.id==="dpick"){ UI.date=e.target.value||todayISO(); render(); } });
 document.addEventListener("input", e=>{ if(e.target.id==="memo") UI.memo=e.target.value; });
 
@@ -1580,6 +2018,15 @@ function openSyncSheet(){
       };
     });
 }
+
+/* 창 폭이 바뀌면 차트를 다시 그린다 */
+let rzTimer = null, lastW = window.innerWidth;
+window.addEventListener("resize", ()=>{
+  if(Math.abs(window.innerWidth - lastW) < 40) return;
+  lastW = window.innerWidth;
+  clearTimeout(rzTimer);
+  rzTimer = setTimeout(()=>{ if(!sheetOpen) render(); }, 220);
+});
 
 /* 차트 툴팁 */
 const tipEl = $("#tip");

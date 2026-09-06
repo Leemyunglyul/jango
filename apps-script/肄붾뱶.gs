@@ -8,12 +8,19 @@
  *  4) 배포 → 새 배포 → 웹 앱 / 실행: 나 / 액세스: 모든 사용자
  */
 
-var SH_TX = "거래", SH_SET = "설정", SH_AS = "자산", SH_SNAP = "스냅샷";
+var SH_TX = "거래", SH_SET = "설정", SH_AS = "자산", SH_SNAP = "스냅샷", SH_HOLD = "종목";
 
 var TX_HEAD   = ["날짜", "월", "구분", "분류", "금액", "메모", "일회성", "ID", "분류ID"];
-var AS_HEAD   = ["이름", "구분", "평가액", "대출잔액", "월납입", "메모", "ID", "구분ID", "종목(JSON)"];
-var SNAP_HEAD = ["월", "현금", "투자", "부동산", "연금", "보험", "부채", "순자산", "기록일"];
+var AS_HEAD   = ["이름", "구분", "평가액", "누적 납입원금", "당월 납입액", "대출잔액", "메모", "ID", "구분ID"];
+var HOLD_HEAD = ["계좌", "종목", "수량", "평단가", "현재가", "평가액", "평가손익", "계좌ID"];
+var SNAP_HEAD = ["월", "당월 납입", "누적 원금", "현금", "ISA", "해외직투", "국내주식", "연금",
+                 "기타 투자", "주택청약", "투자 평가액", "부동산", "보험", "부채",
+                 "순자산(부동산 제외)", "순자산", "기록일"];
 var SET_HEAD  = ["키", "값(JSON)"];
+/* 스냅샷 열 순서와 맞물리는 키 (월/기록일 제외) */
+var SNAP_KEYS = ["contrib", "principal", "cash", "isa", "overseas", "domestic", "pension",
+                 "etcinv", "housing", "invest", "real", "insure", "debt",
+                 "totalExReal", "total"];
 
 /* ── 엔트리 포인트 ────────────────────────────────────────── */
 
@@ -135,23 +142,44 @@ function readTx() {
 
 function readAssets() {
   var s = sheet(SH_AS, AS_HEAD), n = s.getLastRow(), list = [];
+  var byAcct = readHolds();          // 종목 시트가 보유종목의 원본
   if (n < 2) return list;
   s.getRange(2, 1, n - 1, AS_HEAD.length).getValues().forEach(function (r) {
-    if (!r[0] && !r[6]) return;
-    var holds = [];
-    try { holds = JSON.parse(r[8] || "[]") || []; } catch (e) {}
+    var id = String(r[7] || "");
+    if (!r[0] && !id) return;
     list.push({
-      id:       String(r[6] || ""),
-      name:     String(r[0] || ""),
-      group:    String(r[7] || "cash"),
-      value:    Number(r[2]) || 0,
-      loan:     Number(r[3]) || 0,
-      monthly:  Number(r[4]) || 0,
-      note:     String(r[5] || ""),
-      holdings: holds
+      id:        id,
+      name:      String(r[0] || ""),
+      group:     String(r[8] || "cash"),
+      value:     Number(r[2]) || 0,
+      principal: Number(r[3]) || 0,
+      monthly:   Number(r[4]) || 0,
+      loan:      Number(r[5]) || 0,
+      note:      String(r[6] || ""),
+      holdings:  byAcct[id] || []
     });
   });
   return list;
+}
+
+/* 종목 시트 → { 계좌ID: [ {name,qty,avg,price} ] }
+   사용자가 시트에서 '현재가'만 고쳐도 앱에 그대로 반영된다. */
+function readHolds() {
+  var s = sheet(SH_HOLD, HOLD_HEAD), n = s.getLastRow(), out = {};
+  if (n < 2) return out;
+  s.getRange(2, 1, n - 1, HOLD_HEAD.length).getValues().forEach(function (r) {
+    var acct = String(r[7] || "");
+    var name = String(r[1] || "");
+    if (!acct || !name) return;
+    if (!out[acct]) out[acct] = [];
+    out[acct].push({
+      name:  name,
+      qty:   Number(r[2]) || 0,
+      avg:   Number(r[3]) || 0,
+      price: Number(r[4]) || 0
+    });
+  });
+  return out;
 }
 
 function readSnaps() {
@@ -160,16 +188,10 @@ function readSnaps() {
   s.getRange(2, 1, n - 1, SNAP_HEAD.length).getValues().forEach(function (r) {
     var ym = String(r[0] || "").slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) return;
-    map[ym] = {
-      cash:    Number(r[1]) || 0,
-      invest:  Number(r[2]) || 0,
-      real:    Number(r[3]) || 0,
-      pension: Number(r[4]) || 0,
-      insure:  Number(r[5]) || 0,
-      debt:    Number(r[6]) || 0,
-      total:   Number(r[7]) || 0,
-      at:      toISO(r[8])
-    };
+    var o = {};
+    SNAP_KEYS.forEach(function (k, i) { o[k] = Number(r[i + 1]) || 0; });
+    o.at = toISO(r[SNAP_HEAD.length - 1]);
+    map[ym] = o;
   });
   return map;
 }
@@ -180,6 +202,7 @@ function writeParts(parts) {
   if (parts.settings) writeSettings(parts.settings);
   if (parts.tx)       writeTx(parts.tx);
   if (parts.assets)   writeAssets(parts.assets);
+  if (parts.holds)    writeHolds(parts.holds);
   if (parts.snaps)    writeSnaps(parts.snaps);
 }
 
@@ -220,13 +243,33 @@ function writeAssets(list) {
   if (!list || !list.length) return;
   var vals = list.map(function (a) {
     return [
-      a.name || "", a.gn || a.group || "", Number(a.value) || 0,
-      Number(a.loan) || 0, Number(a.monthly) || 0, a.note || "",
-      a.id || "", a.group || "", JSON.stringify(a.holdings || [])
+      a.name || "", a.gn || a.group || "",
+      Number(a.value) || 0, Number(a.principal) || 0, Number(a.monthly) || 0,
+      Number(a.loan) || 0, a.note || "", a.id || "", a.group || ""
     ];
   });
   s.getRange(2, 1, vals.length, AS_HEAD.length).setValues(vals);
-  s.getRange(2, 3, vals.length, 3).setNumberFormat("#,##0");
+  s.getRange(2, 3, vals.length, 4).setNumberFormat("#,##0");
+}
+
+/* 종목 시트. 평가액·평가손익은 수식으로 넣어 두어서
+   시트에서 '현재가'만 고쳐도 그 자리에서 다시 계산된다. */
+function writeHolds(list) {
+  var s = sheet(SH_HOLD, HOLD_HEAD);
+  clearBody(s, HOLD_HEAD.length);
+  if (!list || !list.length) return;
+  var vals = list.map(function (h) {
+    return [h.acct || "", h.name || "", Number(h.qty) || 0,
+            Number(h.avg) || 0, Number(h.price) || 0, "", "", h.acctId || ""];
+  });
+  s.getRange(2, 1, vals.length, HOLD_HEAD.length).setValues(vals);
+  var f = vals.map(function (_, i) {
+    var r = i + 2;
+    return ["=IF(C" + r + "=\"\",,C" + r + "*E" + r + ")",
+            "=IF(OR(C" + r + "=\"\",D" + r + "=0),,C" + r + "*(E" + r + "-D" + r + "))"];
+  });
+  s.getRange(2, 6, f.length, 2).setFormulas(f);
+  s.getRange(2, 4, vals.length, 4).setNumberFormat("#,##0");
 }
 
 function writeSnaps(map) {
@@ -236,10 +279,11 @@ function writeSnaps(map) {
   if (!keys.length) return;
   var vals = keys.map(function (ym) {
     var v = map[ym] || {};
-    return [ym, Number(v.cash) || 0, Number(v.invest) || 0, Number(v.real) || 0,
-            Number(v.pension) || 0, Number(v.insure) || 0, Number(v.debt) || 0,
-            Number(v.total) || 0, v.at || ""];
+    var row = [ym];
+    SNAP_KEYS.forEach(function (k) { row.push(Number(v[k]) || 0); });
+    row.push(v.at || "");
+    return row;
   });
   s.getRange(2, 1, vals.length, SNAP_HEAD.length).setValues(vals);
-  s.getRange(2, 2, vals.length, 7).setNumberFormat("#,##0");
+  s.getRange(2, 2, vals.length, SNAP_KEYS.length).setNumberFormat("#,##0");
 }
