@@ -9,9 +9,9 @@
  */
 
 /* 이 값을 앱이 확인한다. 코드를 갱신했는데 재배포를 안 하면 앱이 알아채고 알려준다. */
-var SCRIPT_VERSION = 4;
+var SCRIPT_VERSION = 5;
 
-var SH_TX = "거래", SH_SET = "설정", SH_AS = "자산", SH_SNAP = "스냅샷", SH_HOLD = "종목", SH_QUOTE = "_시세";
+var SH_TX = "거래", SH_SET = "설정", SH_AS = "자산", SH_SNAP = "스냅샷", SH_INVEST = "월별 투자기록", SH_HOLD = "종목", SH_QUOTE = "_시세";
 
 var TX_HEAD   = ["날짜", "월", "구분", "분류", "금액", "메모", "일회성", "ID", "분류ID"];
 var AS_HEAD   = ["이름", "구분", "평가액", "누적 납입원금", "당월 납입액", "대출잔액", "메모", "ID", "구분ID"];
@@ -19,8 +19,10 @@ var HOLD_HEAD = ["계좌", "종목", "수량", "평단가", "현재가", "평가
                  "시세코드", "원시세", "통화", "적용환율", "시세갱신"];
 var SNAP_HEAD = ["월", "당월 납입", "누적 원금", "현금", "ISA", "해외직투", "국내주식", "연금",
                  "기타 투자", "주택청약", "투자 평가액", "부동산", "보험", "부채",
-                 "순자산(부동산 제외)", "순자산", "기록일", "당월 인출", "시장손익",
-                 "월수익률", "메모", "보유종목(JSON)"];
+                 "순자산(부동산 제외)", "순자산", "기록일"];
+var INVEST_HEAD = ["월", "기록일", "당월 납입", "당월 인출", "순입금", "월말 투자평가액",
+                   "누적 원금", "시장손익", "월수익률", "누적 평가손익", "ISA", "해외직투",
+                   "국내주식", "연금", "기타 투자", "메모", "보유종목(JSON)", "수정일"];
 var SET_HEAD  = ["키", "값(JSON)"];
 /* 스냅샷 열 순서와 맞물리는 키 (월/기록일 제외) */
 var SNAP_KEYS = ["contrib", "principal", "cash", "isa", "overseas", "domestic", "pension",
@@ -47,7 +49,7 @@ function handle(e) {
     if (action === "ping" || action === "diag") {
       return out({
         ok: true, name: ss().getName(), rev: getRev(), version: SCRIPT_VERSION,
-        sheets: [SH_TX, SH_AS, SH_HOLD, SH_SNAP, SH_SET].map(function (n) {
+        sheets: [SH_TX, SH_AS, SH_HOLD, SH_INVEST, SH_SET].map(function (n) {
           var sh = ss().getSheetByName(n);
           return { name: n, rows: sh ? Math.max(0, sh.getLastRow() - 1) : -1 };
         })
@@ -55,6 +57,11 @@ function handle(e) {
     }
     if (action === "load") return out({ ok: true, rev: getRev(), data: readAll() });
     if (action === "quotes") return out({ ok: true, quotes: getQuotes(body.symbols || []) });
+    if (action === "deleteInvestMonth") {
+      deleteInvestMonth(String(body.ym || ""));
+      setRev(getRev() + 1);
+      return out({ ok: true, rev: getRev() });
+    }
 
     if (action === "save") {
       var lock = LockService.getScriptLock();
@@ -234,11 +241,13 @@ function readGoogleFinance(symbols) {
 /* ── 읽기 ────────────────────────────────────────────────── */
 
 function readAll() {
+  var investMonths = readInvestMonths();
   return {
     settings: readSettings(),
     months:   readTx(),
     assets:   readAssets(),
-    snaps:    readSnaps()
+    investMonths: investMonths,
+    snaps: investMonths /* v4 앱이 캐시되어 있어도 기록을 잃지 않게 하는 호환 필드 */
   };
 }
 
@@ -320,21 +329,48 @@ function readHolds() {
   return out;
 }
 
-function readSnaps() {
-  var s = sheet(SH_SNAP, SNAP_HEAD), n = s.getLastRow(), map = {};
+/* 기존 스냅샷은 읽기 전용 이관 원본이다. 새 저장은 절대 이 탭을 건드리지 않는다. */
+function readLegacySnaps() {
+  var s = ss().getSheetByName(SH_SNAP), map = {};
+  if (!s) return map;
+  var n = s.getLastRow();
   if (n < 2) return map;
-  s.getRange(2, 1, n - 1, SNAP_HEAD.length).getValues().forEach(function (r) {
+  /* v4가 스냅샷 뒤에 붙였던 월별 투자 필드까지 포함해 읽는다. */
+  s.getRange(2, 1, n - 1, 22).getValues().forEach(function (r) {
     var ym = String(r[0] || "").slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) return;
     var o = {};
     SNAP_KEYS.forEach(function (k, i) { o[k] = Number(r[i + 1]) || 0; });
-    /* v3까지는 기록일이 17번째 열이었다. 새 월별 투자 필드는 그 뒤에 붙인다. */
     o.at = toISO(r[16]);
     o.withdrawal = Number(r[17]) || 0;
     o.marketPnl = Number(r[18]) || 0;
     o.monthlyRate = Number(r[19]) || 0;
-    o.memo = String(r[20] || "");
+    o.memo = String(r[20] || "기존 스냅샷에서 이관");
     try { o.holdings = JSON.parse(r[21] || "[]"); } catch (e) { o.holdings = []; }
+    map[ym] = o;
+  });
+  return map;
+}
+
+function readInvestMonths() {
+  var s = ss().getSheetByName(SH_INVEST), map = {};
+  if (!s || s.getLastRow() < 2) {
+    var legacy = readLegacySnaps();
+    if (Object.keys(legacy).length) writeInvestMonths(legacy);
+    return legacy;
+  }
+  s.getRange(2, 1, s.getLastRow() - 1, INVEST_HEAD.length).getValues().forEach(function (r) {
+    var ym = String(r[0] || "").slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(ym)) return;
+    var o = {
+      at: toISO(r[1]), contrib: Number(r[2]) || 0, withdrawal: Number(r[3]) || 0,
+      invest: Number(r[5]) || 0, principal: Number(r[6]) || 0,
+      marketPnl: Number(r[7]) || 0, monthlyRate: Number(r[8]) || 0,
+      isa: Number(r[10]) || 0, overseas: Number(r[11]) || 0,
+      domestic: Number(r[12]) || 0, pension: Number(r[13]) || 0,
+      etcinv: Number(r[14]) || 0, memo: String(r[15] || "")
+    };
+    try { o.holdings = JSON.parse(r[16] || "[]"); } catch (e) { o.holdings = []; }
     map[ym] = o;
   });
   return map;
@@ -347,7 +383,8 @@ function writeParts(parts) {
   if (parts.tx)       writeTx(parts.tx);
   if (parts.assets)   writeAssets(parts.assets);
   if (parts.holds)    writeHolds(parts.holds);
-  if (parts.snaps)    writeSnaps(parts.snaps);
+  if (parts.investMonths) writeInvestMonths(parts.investMonths);
+  else if (parts.snaps)   writeInvestMonths(parts.snaps); /* v4 앱 호환 */
 }
 
 function writeSettings(obj) {
@@ -422,27 +459,50 @@ function writeHolds(list) {
   s.getRange(2, 12, vals.length, 1).setNumberFormat("#,##0.00");
 }
 
-function writeSnaps(map) {
-  var s = sheet(SH_SNAP, SNAP_HEAD);
-  s.getRange(1, 1, 1, SNAP_HEAD.length).setValues([SNAP_HEAD])
+/* 월별 투자기록은 월을 키로 한 행만 추가/수정한다. 탭 전체를 비우지 않는다. */
+function writeInvestMonths(map) {
+  var s = sheet(SH_INVEST, INVEST_HEAD);
+  s.getRange(1, 1, 1, INVEST_HEAD.length).setValues([INVEST_HEAD])
     .setFontWeight("bold").setBackground("#EFEDE4");
-  clearBody(s, SNAP_HEAD.length);
   var keys = Object.keys(map || {}).sort();
   if (!keys.length) return;
-  var vals = keys.map(function (ym) {
+  var rowByMonth = {};
+  if (s.getLastRow() > 1) {
+    s.getRange(2, 1, s.getLastRow() - 1, 1).getValues().forEach(function (r, i) {
+      var ym = String(r[0] || "").slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(ym)) rowByMonth[ym] = i + 2;
+    });
+  }
+  keys.forEach(function (ym) {
     var v = map[ym] || {};
-    var row = [ym];
-    SNAP_KEYS.forEach(function (k) { row.push(Number(v[k]) || 0); });
-    row.push(v.at || "");
-    row.push(Number(v.withdrawal) || 0);
-    row.push(Number(v.marketPnl) || 0);
-    row.push(Number(v.monthlyRate) || 0);
-    row.push(v.memo || "");
-    row.push(JSON.stringify(v.holdings || []));
-    return row;
+    var row = [
+      ym, v.at || "", Number(v.contrib) || 0, Number(v.withdrawal) || 0,
+      (Number(v.contrib) || 0) - (Number(v.withdrawal) || 0),
+      Number(v.invest) || 0, Number(v.principal) || 0, Number(v.marketPnl) || 0,
+      Number(v.monthlyRate) || 0,
+      (Number(v.invest) || 0) - (Number(v.principal) || 0),
+      Number(v.isa) || 0, Number(v.overseas) || 0, Number(v.domestic) || 0,
+      Number(v.pension) || 0, Number(v.etcinv) || 0, v.memo || "",
+      JSON.stringify(v.holdings || []), new Date()
+    ];
+    var target = rowByMonth[ym] || (s.getLastRow() + 1);
+    s.getRange(target, 1, 1, INVEST_HEAD.length).setValues([row]);
+    rowByMonth[ym] = target;
   });
-  s.getRange(2, 1, vals.length, SNAP_HEAD.length).setValues(vals);
-  s.getRange(2, 2, vals.length, SNAP_KEYS.length).setNumberFormat("#,##0");
-  s.getRange(2, 18, vals.length, 2).setNumberFormat("#,##0");
-  s.getRange(2, 20, vals.length, 1).setNumberFormat("0.00%");
+  if (s.getLastRow() > 1) {
+    s.getRange(2, 3, s.getLastRow() - 1, 6).setNumberFormat("#,##0");
+    s.getRange(2, 9, s.getLastRow() - 1, 1).setNumberFormat("0.00%");
+    s.getRange(2, 10, s.getLastRow() - 1, 6).setNumberFormat("#,##0");
+    s.getRange(2, 18, s.getLastRow() - 1, 1).setNumberFormat("yyyy-mm-dd hh:mm");
+  }
+}
+
+function deleteInvestMonth(ym) {
+  if (!/^\d{4}-\d{2}$/.test(ym)) throw new Error("월 형식이 올바르지 않습니다.");
+  var s = ss().getSheetByName(SH_INVEST);
+  if (!s || s.getLastRow() < 2) return;
+  var vals = s.getRange(2, 1, s.getLastRow() - 1, 1).getValues();
+  for (var i = vals.length - 1; i >= 0; i--) {
+    if (String(vals[i][0] || "").slice(0, 7) === ym) s.deleteRow(i + 2);
+  }
 }
