@@ -1063,6 +1063,13 @@
       .rank:last-child {
         border-bottom: none;
       }
+      button.rank {
+        width: 100%;
+        text-align: left;
+      }
+      button.rank:hover {
+        background: var(--surface2);
+      }
       .rank .n {
         font-size: 13.5px;
         font-weight: 500;
@@ -1279,10 +1286,86 @@
         font-size: 12.5px;
         border-bottom: 1px solid var(--line-soft);
         color: var(--ink2);
+        width: 100%;
+        text-align: left;
+      }
+      .hold:hover {
+        background: var(--surface2);
       }
       .hold .amt {
         margin-left: auto;
         font-family: "IBM Plex Mono", monospace;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* 시트 안에서 종목을 바로 고치는 줄 — 값을 치면 그 자리에서 평가금이 다시 계산된다 */
+      .holdedit {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line-soft);
+      }
+      .holdedit:last-child {
+        border-bottom: none;
+      }
+      .holdedit .hline {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .holdedit .hname {
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid transparent;
+        padding: 2px 0;
+        font-size: 14px;
+        font-weight: 500;
+        border-radius: 0;
+      }
+      .holdedit .hname:focus {
+        outline: none;
+        border-bottom-color: var(--line);
+      }
+      .holdedit .hval {
+        font-family: "IBM Plex Mono", monospace;
+        font-variant-numeric: tabular-nums;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .holdedit .hgrid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        margin-top: 7px;
+      }
+      .holdedit .hgrid label {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 10.5px;
+        color: var(--ink3);
+        font-weight: 500;
+        letter-spacing: 0.02em;
+      }
+      .holdedit .hgrid input {
+        background: var(--surface2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 7px 8px;
+        width: 100%;
+        font-family: "IBM Plex Mono", monospace;
+        font-variant-numeric: tabular-nums;
+        font-size: 13.5px;
+        text-align: right;
+      }
+      .holdedit .hgrid input:focus {
+        outline: none;
+        border-color: var(--ink3);
+      }
+      .holdedit .hpl {
+        font-size: 11.5px;
+        color: var(--ink3);
+        margin-top: 6px;
         font-variant-numeric: tabular-nums;
       }
 
@@ -1959,17 +2042,6 @@
       };
       const isInvestGroup = (g) =>
         (GROUPS.find((x) => x.id === g) || {}).invest === true;
-      const positionHoldings = (a) =>
-        (a.holdings || []).filter((h) => (Number(h.qty) || 0) > 0);
-      const holdingsCost = (a) =>
-        positionHoldings(a).reduce(
-          (sum, h) => sum + (Number(h.qty) || 0) * (Number(h.avg) || 0),
-          0,
-        );
-      /* 종목이 있는 투자 계좌는 평단가×보유수량을 원금으로 사용한다.
-   종목이 없는 계좌(예: 직접 종목을 넣지 않은 연금)는 기존 수동 입력값을 유지한다. */
-      const accountPrincipal = (a) =>
-        positionHoldings(a).length ? holdingsCost(a) : Number(a.principal) || 0;
 
       /* 원본 '투자 월별 평가' 시트 2026-08 행 그대로 */
       const SEED_SNAPS = {
@@ -2518,6 +2590,11 @@
             ),
         );
       }
+      const holdVal = (h) => (Number(h.qty) || 0) * (Number(h.price) || 0);
+      const holdCost = (h) => (Number(h.qty) || 0) * (Number(h.avg) || 0);
+      /* 투자 계좌의 누적 원금은 각 종목의 평단가 × 보유 수량 합계다. */
+      const accountPrincipal = (a) =>
+        (a.holdings || []).reduce((sum, h) => sum + holdCost(h), 0);
       function assetValue(a) {
         /* 종목이 등록돼 있으면 종목 평가액 합이 우선, 없으면 직접 입력한 평가액 */
         if (a.holdings && a.holdings.length) {
@@ -2547,42 +2624,15 @@
         return { g, total, investTotal, totalExReal };
       }
       /* 투자 계좌들의 원금·납입 집계 */
-      function latestSnap() {
-        const ks = Object.keys(S.snaps).sort();
-        return ks.length ? S.snaps[ks[ks.length - 1]] : null;
-      }
       function investTotals() {
         const { g, investTotal, total, totalExReal } = assetTotals();
         let principal = 0,
-          contrib = 0,
-          autoAccounts = 0,
-          missingAvg = 0,
-          hasPositions = false;
+          contrib = 0;
         S.assets.forEach((a) => {
           if (!isInvestGroup(a.group)) return;
-          const positions = positionHoldings(a);
-          if (positions.length) {
-            hasPositions = true;
-            autoAccounts++;
-            principal += holdingsCost(a);
-            missingAvg += positions.filter(
-              (h) => (Number(h.avg) || 0) <= 0,
-            ).length;
-          } else {
-            principal += Number(a.principal) || 0;
-          }
+          principal += accountPrincipal(a);
           contrib += Number(a.monthly) || 0;
         });
-        /* 계좌별 누적원금을 아직 안 넣었으면 마지막 스냅샷의 누적원금을 이어 쓴다.
-     (당월 납입액은 이어 쓰지 않는다 — 지난달 값이 이번 달로 새면 안 되니까) */
-        let fromSnap = false;
-        if (!principal && !hasPositions) {
-          const s = latestSnap();
-          if (s && s.principal) {
-            principal = s.principal;
-            fromSnap = true;
-          }
-        }
         const pl = principal ? investTotal - principal : 0;
         return {
           g,
@@ -2590,9 +2640,6 @@
           principal,
           contrib,
           pl,
-          fromSnap,
-          autoAccounts,
-          missingAvg,
           rate: principal ? pl / principal : 0,
           total,
           totalExReal,
@@ -2603,7 +2650,7 @@
       function allHoldings() {
         const out = [];
         S.assets.forEach((a) => {
-          (a.holdings || []).forEach((h) => {
+          (a.holdings || []).forEach((h, i) => {
             const qty = Number(h.qty) || 0,
               price = Number(h.price) || 0,
               avg = Number(h.avg) || 0;
@@ -2620,6 +2667,8 @@
               v,
               cost,
               pl: v - cost,
+              aid: a.id,
+              hi: i,
             });
           });
         });
@@ -3102,7 +3151,7 @@
     <div class="tiles" style="margin-top:14px">
       <div class="tile"><div class="k">현금·예금</div><div class="v">${won(g.cash || 0)}</div></div>
       <div class="tile"><div class="k">투자 평가액</div><div class="v" style="color:var(--invest)">${won(t.investTotal)}</div>
-        <div class="d">${t.principal ? (t.pl >= 0 ? "+" : "") + shortWon(t.pl) + " (" + (t.rate * 100).toFixed(1) + "%)" : "원금 미입력"}</div></div>
+        <div class="d">${t.principal ? (t.pl >= 0 ? "+" : "") + shortWon(t.pl) + " (" + (t.rate * 100).toFixed(1) + "%)" : "평단가 미입력"}</div></div>
       <div class="tile"><div class="k">청약·부동산 등</div><div class="v">${won((g.housing || 0) + (g.real || 0) + (g.insure || 0) + (g.debt || 0))}</div>
         <div class="d">${g.housing ? "청약 " + shortWon(g.housing) : "&nbsp;"}</div></div>
     </div>
@@ -3148,8 +3197,10 @@
                 .map(
                   (
                     h,
-                  ) => `<div class="hold"><span>${esc(h.name)}</span><span class="mm">${h.qty}주</span>
-                 <span class="amt">${won((Number(h.qty) || 0) * (Number(h.price) || 0))}</span></div>`,
+                    i,
+                  ) => `<button class="hold" data-asset="${a.id}" data-hold="${i}">
+                 <span>${esc(h.name)}</span><span class="mm">${h.qty}주 · ${won(h.price)}</span>
+                 <span class="amt">${won(holdVal(h))}</span></button>`,
                 )
                 .join("")
             );
@@ -3160,8 +3211,8 @@
       .join("")}
     </div>
 
-    <div class="note" style="margin:14px 0 30px">시세는 자동으로 안 들어와요. 계좌를 눌러 종목별 현재가를 가끔 갱신하거나,
-      구글 시트를 연결했다면 <b>종목</b> 탭에서 현재가만 고쳐도 반영돼요.</div>
+    <div class="note" style="margin:14px 0 30px">시세는 자동으로 안 들어와요. <b>종목 줄을 바로 눌러</b> 현재가만 고치면
+      평가금이 그 자리에서 다시 계산돼요. 구글 시트를 연결했다면 <b>종목</b> 탭에서 현재가만 고쳐도 반영됩니다.</div>
   </section>`;
       }
 
@@ -3200,7 +3251,7 @@
     <div class="tiles">
       <div class="tile"><div class="k">투자 평가액</div><div class="v" style="color:var(--invest)">${won(t.investTotal)}</div></div>
       <div class="tile"><div class="k">누적 납입원금</div><div class="v">${t.principal ? won(t.principal) : "—"}</div>
-        <div class="d">${t.missingAvg ? `평단가가 없는 종목 ${t.missingAvg}개` : t.autoAccounts ? "평단가 × 보유 수량 자동 합산" : t.principal ? "계좌 입력값" : "계좌에서 입력"}</div></div>
+        <div class="d">${t.principal ? "평단가 × 보유 수량 자동 합산" : "종목의 평단가를 입력하세요"}</div></div>
       <div class="tile"><div class="k">평가손익</div>
         <div class="v" style="color:${t.principal ? (t.pl >= 0 ? "var(--crit)" : "var(--invest)") : "var(--ink3)"}">${t.principal ? (t.pl >= 0 ? "+" : "") + won(t.pl) : "—"}</div>
         <div class="d">${t.principal ? (t.rate * 100).toFixed(1) + "%" : "원금 입력 필요"}</div></div>
@@ -3247,16 +3298,19 @@
             holds.length
               ? holds
                   .map(
-                    (h) => `<div class="rank">
+                    (
+                      h,
+                    ) => `<button class="rank" data-asset="${h.aid}" data-hold="${h.hi}" style="width:100%;text-align:left">
             <div class="n">${esc(h.name)} <span class="mm" style="font-weight:400">· ${esc(h.acct)}</span></div>
             <div class="v">${won(h.v)}</div>
             <div class="bar"><i style="width:${((h.v / (holds[0].v || 1)) * 100).toFixed(1)}%;background:var(--invest)"></i></div>
             <div class="delta">${((h.v / (holdTotal || 1)) * 100).toFixed(1)}%${h.cost ? ` · <span style="color:${h.pl >= 0 ? "var(--crit)" : "var(--invest)"}">${h.pl >= 0 ? "+" : ""}${shortWon(h.pl)}</span>` : ""}</div>
-          </div>`,
+          </button>`,
                   )
                   .join("")
               : `<div class="empty">등록된 종목이 없어요.<br><b>자산</b>에서 계좌를 누르고 종목·수량·평단·현재가를<br>넣으면 여기에 비중이 나와요.</div>`
           }
+          ${holds.length ? `<div class="note" style="padding:10px 14px 12px">종목을 누르면 현재가를 바로 고칠 수 있어요.</div>` : ""}
         </div>
       </div>
     </div>
@@ -3298,8 +3352,8 @@
       </div>
     </div>
     <div class="note" style="margin-top:8px">회색 <b>—</b> 는 아직 값이 없는 칸이에요.
-      현재 누적 원금은 종목별 <b>평단가 × 보유 수량</b>을 자동 합산해요. 종목이 없는 투자 계좌만 계좌의 누적 원금 입력값을 사용합니다.
-      <b>당월 납입액</b>은 계좌에서 직접 넣어주세요.
+      현재 누적 원금은 모든 투자 종목의 <b>평단가 × 보유 수량</b>을 자동 합산합니다.
+      <b>당월 납입액</b>만 계좌에서 직접 입력하면 됩니다.
       맨 아래 줄은 지금 이 순간의 값이고, <b>스냅샷 저장</b>을 눌러야 기록으로 굳어져요.</div>
 
     <div class="hstack" style="margin:16px 0 30px">
@@ -3720,7 +3774,32 @@
           },
         );
       }
-      function openAssetSheet(id) {
+      /* 종목 한 줄 — 이름·수량·평단·현재가를 그 자리에서 고친다.
+   값을 치면 평가금이 바로 다시 계산되고 계좌 평가액까지 따라 움직인다. */
+      function holdEditRow(h, i) {
+        const v = holdVal(h),
+          c = holdCost(h);
+        return `<div class="holdedit" data-hold="${i}">
+    <div class="hline">
+      <input class="hname" data-h="name" value="${esc(h.name)}" placeholder="종목명" aria-label="종목명">
+      <span class="hval num" data-hv>${won(v)}</span>
+      <button class="tag" data-delhold="${i}">삭제</button>
+    </div>
+    <div class="hgrid">
+      <label>수량<input type="number" inputmode="decimal" step="any" data-h="qty" value="${Number(h.qty) || 0}" aria-label="수량"></label>
+      <label>평단가<input type="number" inputmode="numeric" data-h="avg" value="${Number(h.avg) || 0}" aria-label="평단가"></label>
+      <label>현재가<input type="number" inputmode="numeric" data-h="price" value="${Number(h.price) || 0}" aria-label="현재가"></label>
+    </div>
+    <div class="hpl" data-hpl></div>
+  </div>`;
+      }
+      function holdListHtml(hs) {
+        return (
+          hs.map(holdEditRow).join("") ||
+          `<div class="empty" style="padding:16px">종목을 넣으면 평가액이 자동 합산되고<br>투자 탭에 비중이 나와요. 비워두면 위 평가액을 그대로 씁니다.</div>`
+        );
+      }
+      function openAssetSheet(id, focusHold) {
         const a = S.assets.find((x) => x.id === id) || {
           id: id,
           name: "",
@@ -3732,7 +3811,6 @@
         };
         const isNew = !S.assets.some((x) => x.id === a.id);
         const hs = a.holdings || [];
-        const initialHasPositions = positionHoldings(a).length > 0;
         const inv = isInvestGroup(a.group);
         openSheet(
           `<h3>${isNew ? "계좌·자산 추가" : esc(a.name)}</h3>
@@ -3744,10 +3822,10 @@
 
     <div id="invF" ${inv ? "" : "hidden"}>
       <div class="field"><div class="row2">
-        <div><label>누적 납입원금 ${initialHasPositions ? "(자동)" : "(원)"}</label><input id="a_p" type="number" inputmode="numeric" value="${accountPrincipal(a)}" ${initialHasPositions ? "readonly" : ""}></div>
+        <div><label>누적 납입원금 (자동)</label><input id="a_p" type="number" inputmode="numeric" value="${accountPrincipal(a)}" readonly></div>
         <div><label>당월 납입액 (원)</label><input id="a_mo" type="number" inputmode="numeric" value="${Number(a.monthly) || 0}"></div>
       </div>
-      <div class="note">종목이 있으면 누적 원금은 평단가 × 보유 수량으로 자동 계산돼요. 종목이 없는 계좌만 직접 입력하며, 당월 납입액은 별도로 입력합니다.</div></div>
+      <div class="note">누적 원금은 아래 종목들의 평단가 × 보유 수량으로 자동 계산돼요. 당월 납입액만 직접 입력합니다.</div></div>
     </div>
 
     <div class="field" id="loanF" ${a.group === "real" ? "" : "hidden"}><label>대출 잔액 (원)</label>
@@ -3757,22 +3835,8 @@
 
     <div id="holdF" ${inv ? "" : "hidden"}>
       <h2 class="sec" style="margin-top:18px">종목</h2>
-      <div class="card rows" id="holdList">
-        ${
-          hs
-            .map((h, i) => {
-              const v = (Number(h.qty) || 0) * (Number(h.price) || 0),
-                c = (Number(h.qty) || 0) * (Number(h.avg) || 0);
-              return `<div class="row"><span class="grow"><span class="nm">${esc(h.name)}</span>
-            <span class="mm">${h.qty}주 · 평단 ${won(h.avg)} → ${won(h.price)}</span>
-            ${c ? `<span class="mm" style="color:${v >= c ? "var(--crit)" : "var(--invest)"}"> ${v >= c ? "+" : ""}${won(v - c)}</span>` : ""}</span>
-            <span class="amt num">${won(v)}</span>
-            <button class="tag" data-delhold="${i}">삭제</button></div>`;
-            })
-            .join("") ||
-          `<div class="empty" style="padding:16px">종목을 넣으면 평가액이 자동 합산되고<br>투자 탭에 비중이 나와요. 비워두면 위 평가액을 그대로 씁니다.</div>`
-        }
-      </div>
+      <div class="card rows" id="holdList">${holdListHtml(hs)}</div>
+      <div class="note" id="holdSum" style="margin-top:8px"></div>
       <div class="field" style="margin-top:10px"><div class="row2">
         <input id="h_n" placeholder="종목명"><input id="h_q" type="number" inputmode="decimal" placeholder="수량">
       </div></div>
@@ -3796,19 +3860,12 @@
             g.onchange = refresh;
             const commit = (extra) => {
               const iv = isInvestGroup(g.value);
-              const hasPositions = positionHoldings(a).length > 0;
               const next = {
                 ...a,
                 name: $("#a_n").value.trim() || "이름 없음",
                 group: g.value,
                 value: Number($("#a_v").value) || 0,
-                principal: iv
-                  ? hasPositions
-                    ? holdingsCost(a)
-                    : initialHasPositions
-                      ? 0
-                      : Number($("#a_p").value) || 0
-                  : 0,
+                principal: iv ? accountPrincipal(a) : 0,
                 monthly: iv
                   ? Number($("#a_mo").value) || 0
                   : g.value === "insure"
@@ -3825,11 +3882,89 @@
               persist("assets");
               return next;
             };
-            const reopen = () => {
-              closeSheet();
-              render();
-              setTimeout(() => openAssetSheet(a.id), 140);
+            /* 종목 줄 — 입력할 때마다 그 자리에서 평가금·손익·합계를 다시 그린다 */
+            const paintHolds = () => {
+              const list = a.holdings || [];
+              $$("#holdList [data-hold]").forEach((el) => {
+                const h = list[Number(el.dataset.hold)];
+                if (!h) return;
+                const v = holdVal(h),
+                  c = holdCost(h);
+                $("[data-hv]", el).textContent = won(v);
+                const col = v >= c ? "var(--crit)" : "var(--invest)";
+                const pl = $("[data-hpl]", el);
+                /* 평단가가 없으면 손익 줄은 아예 안 보인다 — 오른쪽 평가금만으로 충분하니까 */
+                pl.innerHTML = c
+                  ? `평가금 ${won(v)} · 매입 ${won(c)} · <b style="color:${col}">${v >= c ? "+" : ""}${won(v - c)} (${(((v - c) / c) * 100).toFixed(1)}%)</b>`
+                  : "";
+                pl.hidden = !c;
+              });
+              const sum = list.reduce((t, h) => t + holdVal(h), 0);
+              const costSum = list.reduce((t, h) => t + holdCost(h), 0);
+              const principalInput = $("#a_p");
+              if (principalInput) principalInput.value = costSum;
+              const se = $("#holdSum");
+              if (se)
+                se.innerHTML = list.length
+                  ? `평가액 <b>${won(sum)}원</b> · 누적 원금 <b>${won(costSum)}원</b>`
+                  : "";
             };
+            /* 타이핑 중에는 저장을 몰아서 한 번만 — 자산 화면도 같이 갱신된다 */
+            let holdTimer = null;
+            const saveHolds = () => {
+              clearTimeout(holdTimer);
+              /* 시트가 이미 닫혔으면 입력칸을 읽지 않고 바뀐 종목만 저장한다 */
+              holdTimer = setTimeout(() => {
+                if ($("#a_n")) commit({});
+                else persist("assets");
+                render();
+              }, 350);
+            };
+            const bindHolds = () => {
+              $$("#holdList [data-hold]").forEach((el) => {
+                const i = Number(el.dataset.hold);
+                $$("[data-h]", el).forEach((inp) => {
+                  inp.oninput = () => {
+                    const h = (a.holdings || [])[i];
+                    if (!h) return;
+                    const f = inp.dataset.h;
+                    h[f] = f === "name" ? inp.value : Number(inp.value) || 0;
+                    paintHolds();
+                    saveHolds();
+                  };
+                  inp.onchange = () => {
+                    clearTimeout(holdTimer);
+                    commit({});
+                    render();
+                  };
+                });
+                const db = $("[data-delhold]", el);
+                if (db)
+                  db.onclick = (e) => {
+                    e.stopPropagation();
+                    const gone = (a.holdings || [])[i];
+                    a.holdings.splice(i, 1);
+                    clearTimeout(holdTimer);
+                    commit({});
+                    renderHolds();
+                    render();
+                    toast(
+                      (gone && gone.name ? gone.name + " " : "") + "삭제했어요",
+                    );
+                  };
+              });
+            };
+            const renderHolds = () => {
+              const box = $("#holdList");
+              if (!box) return;
+              box.innerHTML = holdListHtml(a.holdings || []);
+              bindHolds();
+              paintHolds();
+            };
+            if ($("#holdList")) {
+              bindHolds();
+              paintHolds();
+            }
             $("#h_add") &&
               ($("#h_add").onclick = () => {
                 const n = $("#h_n").value.trim();
@@ -3842,19 +3977,31 @@
                   price:
                     Number($("#h_p").value) || Number($("#h_a").value) || 0,
                 });
+                clearTimeout(holdTimer);
                 commit({});
-                reopen();
+                renderHolds();
+                render();
+                ["#h_n", "#h_q", "#h_a", "#h_p"].forEach((sel) => {
+                  const el = $(sel);
+                  if (el) el.value = "";
+                });
+                $("#h_n").focus();
+                toast(n + " 추가했어요");
               });
-            $$("[data-delhold]").forEach(
-              (b) =>
-                (b.onclick = (e) => {
-                  e.stopPropagation();
-                  a.holdings.splice(Number(b.dataset.delhold), 1);
-                  commit({});
-                  reopen();
-                }),
-            );
+            /* 종목 줄을 눌러서 들어왔으면 그 종목의 현재가에 바로 커서를 둔다 */
+            if (focusHold != null) {
+              const row = $(`#holdList [data-hold="${focusHold}"]`);
+              if (row) {
+                const inp = $('[data-h="price"]', row);
+                row.scrollIntoView({ block: "center" });
+                if (inp) {
+                  inp.focus();
+                  inp.select && inp.select();
+                }
+              }
+            }
             $("#a_save").onclick = () => {
+              clearTimeout(holdTimer);
               commit({});
               closeSheet();
               render();
@@ -3862,6 +4009,7 @@
             };
             $("#a_del") &&
               ($("#a_del").onclick = () => {
+                clearTimeout(holdTimer);
                 S.assets = S.assets.filter((x) => x.id !== a.id);
                 persist("assets");
                 closeSheet();
@@ -4023,7 +4171,7 @@
         if (/현금|예금/.test(t)) return "cash";
         return "etcinv";
       }
-      /* '종목별 포트폴리오' 시트 — 계좌구분·종목명·수량·현재가 열을 찾아 읽는다.
+      /* '종목별 포트폴리오' 시트 — 계좌구분·종목명·수량·평단가·현재가 열을 찾아 읽는다.
    오른쪽에 붙은 요약표나 합계 행은 계좌/종목이 비어 있어서 자동으로 걸러진다. */
       /* 머리글 행을 앞쪽 몇 줄에서 찾는다 — 시트에서 범위를 조금 넓게 잡아 복사해도 되도록 */
       function findHead(rows, re) {
@@ -4526,7 +4674,7 @@
 
         /* 자산 */
         if (d.asset) {
-          openAssetSheet(d.asset);
+          openAssetSheet(d.asset, d.hold !== undefined ? Number(d.hold) : null);
           return;
         }
         if (t.id === "addAsset") {
