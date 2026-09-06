@@ -2139,7 +2139,7 @@
         return /^[A-Z][A-Z0-9.-]{0,14}$/.test(n) ? n : "";
       }
 
-      const DATA_VERSION = 3;
+      const DATA_VERSION = 4;
       /* 예전 버전에서 저장된 데이터를 새 자산·투자 구조로 올린다.
    거래 내역은 절대 건드리지 않고 자산/스냅샷만 손본다. */
       function migrate() {
@@ -2185,6 +2185,14 @@
             if (!h.symbol) h.symbol = inferQuoteSymbol(h.name);
           }),
         );
+        /* v4부터 스냅샷을 월별 투자 장부로 사용한다. 기존 값은 그대로 승계한다. */
+        Object.keys(S.snaps || {}).forEach((ym) => {
+          const r = S.snaps[ym] || {};
+          if (r.withdrawal == null) r.withdrawal = 0;
+          if (!Array.isArray(r.holdings)) r.holdings = [];
+          if (r.memo == null) r.memo = "";
+        });
+        recalcInvestmentMonths();
         S.v = DATA_VERSION;
         return true;
       }
@@ -2297,7 +2305,7 @@
       }
 
       /* ══════════ Google 시트 동기화 ══════════ */
-      const NEED_SCRIPT_VERSION = 3; // v3부터 무료 시세·환율 조회와 시세 메타데이터 저장을 지원한다
+      const NEED_SCRIPT_VERSION = 4; // v4부터 월별 투자 장부와 무료 시세·환율을 함께 지원한다
       const SYNC = {
         url: "",
         token: "",
@@ -2395,7 +2403,7 @@
         if (!SYNC.url)
           throw new Error("먼저 설정에서 구글 시트를 연결해 주세요.");
         if (SYNC.stale)
-          throw new Error("Apps Script를 최신 코드(v3)로 다시 배포해 주세요.");
+          throw new Error("Apps Script를 최신 코드(v4)로 다시 배포해 주세요.");
         const symbols = quoteSymbols(only);
         if (!symbols.length)
           throw new Error("시세코드가 있는 종목이 없어요.");
@@ -2553,6 +2561,7 @@
         S.months = d.months || {};
         S.assets = d.assets && d.assets.length ? d.assets : S.assets;
         S.snaps = d.snaps || {};
+        recalcInvestmentMonths();
         S.rev = rev || 0;
         if (migrate()) persist("assets", "snaps");
         saveLocal();
@@ -2603,6 +2612,7 @@
             ]);
             if (as.exists) S.assets = as.data().list || [];
             if (sn.exists) S.snaps = sn.data().map || {};
+            recalcInvestmentMonths();
             if (rc.exists) S.rec = rc.data().done || {};
             S.months = {};
             ms.docs.forEach((d) => {
@@ -2809,19 +2819,74 @@
         }
         return `${won(h.price)}원`;
       }
-      /* 스냅샷: 사용자가 말한 컬럼 순서를 그대로 담는다 */
-      function buildSnapshot() {
+      function investmentHoldingSnapshot() {
+        return allHoldings().map((h) => ({
+          name: h.name,
+          acct: h.acct,
+          group: h.group,
+          symbol: h.symbol,
+          qty: h.qty,
+          avg: h.avg,
+          price: h.price,
+          value: h.v,
+          cost: h.cost,
+        }));
+      }
+      /* 한 달의 투자 상태를 고정한다. 납입/인출은 월별 입력, 평가액과 보유종목은 저장 시점 값이다. */
+      function buildInvestmentRecord(ym, input) {
         const t = investTotals();
+        input = input || {};
         const snap = {
-          at: todayISO(),
-          contrib: t.contrib,
-          principal: t.principal,
-          invest: t.investTotal,
+          at:
+            input.at ||
+            (ym === ymOf(todayISO())
+              ? todayISO()
+              : `${ym}-${pad2(daysIn(ym))}`),
+          contrib: Number(input.contrib) || 0,
+          withdrawal: Number(input.withdrawal) || 0,
+          principal:
+            input.principal == null
+              ? t.principal
+              : Number(input.principal) || 0,
+          invest:
+            input.invest == null
+              ? t.investTotal
+              : Number(input.invest) || 0,
           total: t.total,
           totalExReal: t.totalExReal,
+          memo: String(input.memo || "").trim(),
+          holdings: input.holdings || investmentHoldingSnapshot(),
         };
         GROUPS.forEach((x) => (snap[x.id] = t.g[x.id] || 0));
         return snap;
+      }
+      function recalcInvestmentMonths() {
+        let prev = null;
+        Object.keys(S.snaps || {})
+          .sort()
+          .forEach((ym) => {
+            const r = S.snaps[ym];
+            if (r.withdrawal == null) r.withdrawal = 0;
+            if (!Array.isArray(r.holdings)) r.holdings = [];
+            if (r.memo == null) r.memo = "";
+            const contribution = Number(r.contrib) || 0;
+            const withdrawal = Number(r.withdrawal) || 0;
+            if (prev) {
+              r.marketPnl =
+                (Number(r.invest) || 0) -
+                (Number(prev.invest) || 0) -
+                contribution +
+                withdrawal;
+              const base =
+                (Number(prev.invest) || 0) +
+                (contribution - withdrawal) / 2;
+              r.monthlyRate = base > 0 ? r.marketPnl / base : 0;
+            } else {
+              r.marketPnl = 0;
+              r.monthlyRate = 0;
+            }
+            prev = r;
+          });
       }
 
       /* ============================== 화면: 기록 ============================== */
@@ -3243,12 +3308,6 @@
         const t = investTotals();
         const g = t.g,
           total = t.total;
-        const snapKeys = Object.keys(S.snaps).sort();
-        const pts = snapKeys.map((k) => ({ m: k, v: S.snaps[k].total || 0 }));
-        const nowYm = ymOf(todayISO());
-        if (!pts.length || pts[pts.length - 1].m !== nowYm)
-          pts.push({ m: nowYm, v: total, live: true });
-        const prev = pts.length > 1 ? pts[pts.length - 2].v : null;
 
         const byGroup = GROUPS.map((gr) => ({
           ...gr,
@@ -3262,17 +3321,7 @@
     <div class="hero">
       <div class="k">순자산</div>
       <div class="v">${won(total)}<span style="font-family:'IBM Plex Sans KR';font-size:18px;font-weight:500;color:var(--ink2)"> 원</span></div>
-      <div class="d">${
-        prev == null
-          ? "첫 스냅샷"
-          : total === prev
-            ? ymLabel(pts[pts.length - 2].m) + "과 같음"
-            : (total > prev ? "▲ " : "▼ ") +
-              won(Math.abs(total - prev)) +
-              "원 vs " +
-              ymLabel(pts[pts.length - 2].m)
-      }
-        · 부동산 제외 ${won(t.totalExReal)}</div>
+      <div class="d">부동산 제외 ${won(t.totalExReal)} · 투자 월별 추이는 투자 탭에서 관리해요</div>
       <div style="margin-top:14px" class="splitbar">
         ${GROUPS.filter((gr) => (g[gr.id] || 0) > 0)
           .map(
@@ -3291,16 +3340,7 @@
         <div class="d">${g.housing ? "청약 " + shortWon(g.housing) : "&nbsp;"}</div></div>
     </div>
 
-    ${
-      pts.length > 1
-        ? `<h2 class="sec">순자산 추이</h2>
-    <div class="card pad"><div class="chartwrap">${lineChart(pts)}</div>
-    <div class="note" style="margin-top:8px">달마다 스냅샷을 저장하면 점이 늘어나요.</div></div>`
-        : ""
-    }
-
     <div class="hstack" style="margin-top:16px">
-      <button class="btn sm" id="snapNow">${ymLabel(nowYm)} 스냅샷 저장</button>
       <button class="btn sm ghost" id="addAsset">＋ 계좌·자산 추가</button>
       ${SYNC.url ? `<button class="btn sm ghost" id="quoteRefresh">↻ 시세 새로고침</button>` : ""}
     </div>
@@ -3362,17 +3402,32 @@
         const holds = allHoldings();
         const holdTotal = holds.reduce((s, h) => s + h.v, 0);
 
-        /* 월별 표 — 스냅샷 + 이번 달 현재값 */
+        /* 월별 투자 장부 + 아직 저장하지 않은 이번 달 미리보기 */
+        recalcInvestmentMonths();
         const rows = Object.keys(S.snaps)
           .sort()
-          .map((m) => ({ m, ...S.snaps[m] }));
-        if (!rows.length || rows[rows.length - 1].m !== nowYm)
-          rows.push({ m: nowYm, live: true, ...buildSnapshot() });
-        rows.forEach((r, i) => {
-          r.delta = i
-            ? (r.totalExReal || 0) - (rows[i - 1].totalExReal || 0)
-            : null;
-        });
+          .map((m) => ({ m, saved: true, ...S.snaps[m] }));
+        if (!S.snaps[nowYm]) {
+          const live = {
+            m: nowYm,
+            live: true,
+            ...buildInvestmentRecord(nowYm, { contrib: t.contrib }),
+          };
+          const prev = rows[rows.length - 1];
+          if (prev) {
+            live.marketPnl =
+              live.invest -
+              (Number(prev.invest) || 0) -
+              live.contrib +
+              live.withdrawal;
+            const base =
+              (Number(prev.invest) || 0) +
+              (live.contrib - live.withdrawal) / 2;
+            live.monthlyRate = base > 0 ? live.marketPnl / base : 0;
+          }
+          rows.push(live);
+        }
+        rows.sort((a, b) => a.m.localeCompare(b.m));
 
         const investGroups = GROUPS.filter((x) => x.invest)
           .map((x) => ({ ...x, v: t.g[x.id] || 0 }))
@@ -3458,31 +3513,31 @@
     <div class="card card-table"><div class="tablewrap">
       <table class="dtable">
         <thead><tr>
-          <th>월</th><th>당월 납입</th><th>누적 원금</th>
-          <th>ISA</th><th>해외직투</th><th>국내주식</th><th>연금</th><th>주택청약</th>
-          <th>투자 평가액</th><th>현금</th><th>순자산(부동산 제외)</th><th>전월 대비</th>
+          <th>월</th><th>납입</th><th>인출</th><th>순입금</th><th>월말 평가액</th>
+          <th>누적 원금</th><th>시장손익</th><th>월수익률</th><th>누적 평가손익</th>
+          <th>ISA</th><th>해외직투</th><th>국내주식</th><th>연금</th><th>메모</th><th></th>
         </tr></thead>
         <tbody>
         ${rows
           .map(
             (r) => `<tr class="${r.live ? "now" : ""}">
-          <td class="hl">${ymLabel(r.m)}${r.live ? ' <span class="mm">현재</span>' : ""}</td>
-          ${[
-            r.contrib,
-            r.principal,
-            r.isa,
-            r.overseas,
-            r.domestic,
-            r.pension,
-            r.housing,
-          ]
+          <td class="hl">${ymLabel(r.m)}${r.live ? ' <span class="mm">미저장</span>' : ""}</td>
+          <td class="${r.contrib ? "" : "z"}">${r.contrib ? won(r.contrib) : "—"}</td>
+          <td class="${r.withdrawal ? "" : "z"}">${r.withdrawal ? won(r.withdrawal) : "—"}</td>
+          <td>${won((Number(r.contrib) || 0) - (Number(r.withdrawal) || 0))}</td>
+          <td class="hl">${won(r.invest || 0)}</td>
+          <td>${won(r.principal || 0)}</td>
+          <td style="color:${!r.marketPnl ? "var(--ink3)" : r.marketPnl > 0 ? "var(--good)" : "var(--crit)"}">
+            ${!r.marketPnl ? "—" : (r.marketPnl > 0 ? "+" : "") + won(r.marketPnl)}</td>
+          <td style="color:${!r.monthlyRate ? "var(--ink3)" : r.monthlyRate > 0 ? "var(--good)" : "var(--crit)"}">
+            ${r.monthlyRate ? (r.monthlyRate > 0 ? "+" : "") + (r.monthlyRate * 100).toFixed(2) + "%" : "—"}</td>
+          <td style="color:${(r.invest || 0) >= (r.principal || 0) ? "var(--good)" : "var(--crit)"}">
+            ${(r.invest || 0) - (r.principal || 0) >= 0 ? "+" : ""}${won((r.invest || 0) - (r.principal || 0))}</td>
+          ${[r.isa, r.overseas, r.domestic, r.pension]
             .map((v) => `<td class="${v ? "" : "z"}">${v ? won(v) : "—"}</td>`)
             .join("")}
-          <td class="hl">${won(r.invest || 0)}</td>
-          <td class="${r.cash ? "" : "z"}">${r.cash ? won(r.cash) : "—"}</td>
-          <td class="hl">${won(r.totalExReal || 0)}</td>
-          <td style="color:${!r.delta ? "var(--ink3)" : r.delta > 0 ? "var(--good)" : "var(--crit)"}">
-            ${!r.delta ? "—" : (r.delta > 0 ? "▲" : "▼") + won(Math.abs(r.delta))}</td>
+          <td style="text-align:left;max-width:180px">${r.memo ? esc(r.memo) : "—"}</td>
+          <td><button class="tag" data-invest-month="${r.m}">${r.live ? "기록" : "수정"}</button></td>
         </tr>`,
           )
           .join("")}
@@ -3490,13 +3545,12 @@
       </table>
       </div>
     </div>
-    <div class="note" style="margin-top:8px">회색 <b>—</b> 는 아직 값이 없는 칸이에요.
-      현재 누적 원금은 모든 투자 종목의 <b>평단가 × 보유 수량</b>을 자동 합산합니다.
-      <b>당월 납입액</b>만 계좌에서 직접 입력하면 됩니다.
-      맨 아래 줄은 지금 이 순간의 값이고, <b>스냅샷 저장</b>을 눌러야 기록으로 굳어져요.</div>
+    <div class="note" style="margin-top:8px"><b>시장손익</b>은 평가액 증감에서 납입을 빼고 인출을 더한 값입니다.
+      월수익률은 월중 입출금이 중간에 있었다고 가정한 간이 수익률이에요.
+      보유종목·수량·가격도 월 기록을 저장한 시점 그대로 함께 보관됩니다.</div>
 
     <div class="hstack" style="margin:16px 0 30px">
-      <button class="btn sm" id="snapNow">${ymLabel(nowYm)} 스냅샷 저장</button>
+      <button class="btn sm" id="investRecord">＋ 월별 투자 기록</button>
       <button class="btn sm ghost" id="addAsset">＋ 계좌 추가</button>
       <button class="btn sm ghost" id="goAssets">계좌 편집</button>
       <button class="btn sm ghost" id="doImport">시트 붙여넣기</button>
@@ -3986,11 +4040,8 @@
     </div></div>
 
     <div id="invF" ${inv ? "" : "hidden"}>
-      <div class="field"><div class="row2">
-        <div><label>누적 납입원금 (자동)</label><input id="a_p" type="number" inputmode="numeric" value="${accountPrincipal(a)}" readonly></div>
-        <div><label>당월 납입액 (원)</label><input id="a_mo" type="number" inputmode="numeric" value="${Number(a.monthly) || 0}"></div>
-      </div>
-      <div class="note">누적 원금은 아래 종목들의 평단가 × 보유 수량으로 자동 계산돼요. 당월 납입액만 직접 입력합니다.</div></div>
+      <div class="field"><label>누적 원금 (자동)</label><input id="a_p" type="number" inputmode="numeric" value="${accountPrincipal(a)}" readonly>
+      <div class="note">누적 원금은 아래 종목들의 평단가 × 보유 수량으로 계산돼요. 월별 납입·인출은 <b>투자 → 월별 투자 기록</b>에서 관리합니다.</div></div>
     </div>
 
     <div class="field" id="loanF" ${a.group === "real" ? "" : "hidden"}><label>대출 잔액 (원)</label>
@@ -4035,7 +4086,7 @@
                 value: Number($("#a_v").value) || 0,
                 principal: iv ? accountPrincipal(a) : 0,
                 monthly: iv
-                  ? Number($("#a_mo").value) || 0
+                  ? 0
                   : g.value === "insure"
                     ? Number(($("#a_mi") || {}).value) || 0
                     : 0,
@@ -4255,12 +4306,123 @@
           },
         );
       }
-      function snapshotNow() {
-        const ym = ymOf(todayISO());
-        S.snaps[ym] = buildSnapshot();
-        persist("snaps");
-        render();
-        toast(ymLabel(ym) + " 스냅샷 저장");
+      function openInvestmentMonthSheet(initialYm) {
+        const originalYm = initialYm && S.snaps[initialYm] ? initialYm : null;
+        const nowYm = ymOf(todayISO());
+        openSheet(
+          `<h3>${originalYm ? "월별 투자 기록 수정" : "월별 투자 기록"}</h3>
+    <div class="field"><label>기록 월</label><input id="im_m" type="month" value="${initialYm || nowYm}"></div>
+    <div class="field"><div class="row2">
+      <div><label>당월 납입액</label><input id="im_c" type="number" inputmode="numeric"></div>
+      <div><label>당월 인출액</label><input id="im_w" type="number" inputmode="numeric"></div>
+    </div></div>
+    <div class="field"><div class="row2">
+      <div><label>월말 투자 평가액</label><input id="im_v" type="number" inputmode="numeric"></div>
+      <div><label>누적 원금</label><input id="im_p" type="number" inputmode="numeric"></div>
+    </div></div>
+    <div class="field"><label>메모</label><input id="im_n" placeholder="예: ISA 50만원 추가 납입, VOO 매수"></div>
+    <div class="note" id="im_hint" style="margin-bottom:12px"></div>
+    <div id="im_holds" class="card rows" style="margin-bottom:14px"></div>
+    <div class="stack"><button class="btn" id="im_save">이 달 기록 저장</button>
+      ${originalYm ? `<button class="btn danger" id="im_del">이 달 기록 삭제</button>` : ""}</div>`,
+          () => {
+            const fill = () => {
+              const ym = $("#im_m").value || nowYm;
+              const saved = S.snaps[ym];
+              const current = ym === nowYm;
+              const t = investTotals();
+              const base =
+                current
+                  ? buildInvestmentRecord(ym, {
+                      contrib: saved ? saved.contrib : t.contrib,
+                      withdrawal: saved ? saved.withdrawal : 0,
+                      memo: saved ? saved.memo : "",
+                    })
+                  : saved || {
+                      contrib: 0,
+                      withdrawal: 0,
+                      invest: 0,
+                      principal: 0,
+                      memo: "",
+                    };
+              $("#im_c").value = Number(base.contrib) || 0;
+              $("#im_w").value = Number(base.withdrawal) || 0;
+              $("#im_v").value = Number(base.invest) || 0;
+              $("#im_p").value = Number(base.principal) || 0;
+              $("#im_n").value = base.memo || "";
+              const savedHolds = Array.isArray(base.holdings)
+                ? base.holdings
+                : [];
+              $("#im_holds").innerHTML = savedHolds.length
+                ? savedHolds
+                    .map(
+                      (h) => `<div class="row"><span class="grow"><span class="nm" style="display:block">${esc(h.name || h.symbol || "종목")}</span><span class="mm" style="display:block;margin-top:2px">${Number(h.qty) || 0}주 · ${won(h.price || 0)}원</span></span><span class="amt num">${won(h.value || 0)}</span></div>`,
+                    )
+                    .join("")
+                : `<div class="empty" style="padding:14px">저장된 종목별 내역이 없어요.</div>`;
+              $("#im_hint").innerHTML = saved
+                ? current
+                  ? `<b>${ymLabel(ym)} 기록</b>의 납입·인출·메모는 유지하고, 현재 평가액과 보유종목을 다시 불러왔어요.`
+                  : `<b>${ymLabel(ym)} 저장 기록</b>을 수정합니다. 저장하면 해당 월만 바뀌어요.`
+                : current
+                  ? `현재 보유 종목 기준 평가액·원금이 채워졌어요. 저장할 때 종목별 수량과 가격도 같이 기록합니다.`
+                  : `과거 월을 새로 입력할 때는 그달의 평가액과 원금을 직접 넣어주세요.`;
+            };
+            $("#im_m").onchange = fill;
+            fill();
+            $("#im_save").onclick = () => {
+              const ym = $("#im_m").value || nowYm;
+              const current = ym === nowYm;
+              const old = S.snaps[ym] || {};
+              const input = {
+                contrib: Math.max(0, Number($("#im_c").value) || 0),
+                withdrawal: Math.max(0, Number($("#im_w").value) || 0),
+                invest: Math.max(0, Number($("#im_v").value) || 0),
+                principal: Math.max(0, Number($("#im_p").value) || 0),
+                memo: $("#im_n").value.trim(),
+              };
+              let record;
+              if (current) {
+                record = buildInvestmentRecord(ym, input);
+              } else {
+                record = {
+                  ...old,
+                  at: old.at || `${ym}-${pad2(daysIn(ym))}`,
+                  contrib: input.contrib,
+                  withdrawal: input.withdrawal,
+                  invest: input.invest,
+                  principal: input.principal,
+                  memo: input.memo,
+                  holdings: Array.isArray(old.holdings) ? old.holdings : [],
+                };
+                GROUPS.forEach((g) => {
+                  if (record[g.id] == null) record[g.id] = 0;
+                });
+              }
+              if (originalYm && originalYm !== ym) delete S.snaps[originalYm];
+              S.snaps[ym] = record;
+              recalcInvestmentMonths();
+              if (current) {
+                S.assets.forEach((a) => {
+                  if (isInvestGroup(a.group)) a.monthly = 0;
+                });
+                persist("snaps", "assets");
+              } else persist("snaps");
+              closeSheet();
+              render();
+              toast(ymLabel(ym) + " 투자 기록을 저장했어요");
+            };
+            $("#im_del") &&
+              ($("#im_del").onclick = () => {
+                delete S.snaps[originalYm];
+                recalcInvestmentMonths();
+                persist("snaps");
+                closeSheet();
+                render();
+                toast(ymLabel(originalYm) + " 기록을 삭제했어요");
+              });
+          },
+        );
       }
 
       /* ============================== 가져오기 ============================== */
@@ -4468,6 +4630,8 @@
           housing: col(/청약/),
           cash: col(/^현금/),
           tex: col(/부동산제외/),
+          withdrawal: col(/당월.*인출|인출액/),
+          memo: col(/메모/),
         };
         const snaps = {};
         rows.slice(hi + 1).forEach((r) => {
@@ -4480,6 +4644,7 @@
           const o = {
             at: ym + "-01",
             contrib: g("contrib"),
+            withdrawal: g("withdrawal"),
             principal: g("principal"),
             isa: g("isa"),
             overseas: g("overseas"),
@@ -4491,6 +4656,8 @@
             real: 0,
             insure: 0,
             debt: 0,
+            memo: c.memo >= 0 ? String(r[c.memo] || "") : "",
+            holdings: [],
           };
           o.invest = o.isa + o.overseas + o.domestic + o.pension;
           o.totalExReal =
@@ -4614,6 +4781,7 @@
                     mode === "replace" ? v : { ...(S.snaps[ym] || {}), ...v };
                   n++;
                 });
+                recalcInvestmentMonths();
                 dirty.add("snaps");
               }
               Object.entries(res.months || {}).forEach(([ym, d]) => {
@@ -4753,7 +4921,6 @@
               누적납입원금: isInvestGroup(a.group)
                 ? accountPrincipal(a)
                 : a.principal || 0,
-              당월납입액: a.monthly || 0,
               대출잔액: a.loan || 0,
             })),
           ),
@@ -4767,6 +4934,8 @@
             return {
               월: m,
               "당월 투자 납입액": v.contrib || 0,
+              "당월 투자 인출액": v.withdrawal || 0,
+              순입금: (v.contrib || 0) - (v.withdrawal || 0),
               누적납입원금: v.principal || 0,
               "ISA 평가액": v.isa || 0,
               "해외직투 평가액": v.overseas || 0,
@@ -4774,17 +4943,13 @@
               "연금 평가액": v.pension || 0,
               주택청약누적: v.housing || 0,
               "투자 평가액": v.invest || 0,
-              현금: v.cash || 0,
-              "총 순자산(부동산 제외)": v.totalExReal || 0,
-              "총 순자산": v.total || 0,
+              시장손익: v.marketPnl || 0,
+              "월수익률(%)": Number(((v.monthlyRate || 0) * 100).toFixed(2)),
+              누적평가손익: (v.invest || 0) - (v.principal || 0),
+              메모: v.memo || "",
+              "보유종목(JSON)": JSON.stringify(v.holdings || []),
             };
           });
-        snapRows.forEach((r, i) => {
-          r["전월 대비 증감"] = i
-            ? r["총 순자산(부동산 제외)"] -
-              snapRows[i - 1]["총 순자산(부동산 제외)"]
-            : "";
-        });
         XLSX.utils.book_append_sheet(
           wb,
           XLSX.utils.json_to_sheet(snapRows),
@@ -4926,8 +5091,12 @@
           openAssetSheet("new_" + uid());
           return;
         }
-        if (t.id === "snapNow") {
-          snapshotNow();
+        if (d.investMonth) {
+          openInvestmentMonthSheet(d.investMonth);
+          return;
+        }
+        if (t.id === "investRecord") {
+          openInvestmentMonthSheet(ymOf(todayISO()));
           return;
         }
         if (t.id === "goAssets") {
@@ -5357,7 +5526,7 @@
                 거래: "거래 내역",
                 자산: "계좌·자산",
                 종목: "보유 종목",
-                스냅샷: "월별 기록",
+                스냅샷: "월별 투자 기록",
                 설정: "분류·예산 등",
               };
               const rowsHtml = (j.sheets || [])

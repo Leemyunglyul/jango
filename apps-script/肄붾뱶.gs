@@ -9,7 +9,7 @@
  */
 
 /* 이 값을 앱이 확인한다. 코드를 갱신했는데 재배포를 안 하면 앱이 알아채고 알려준다. */
-var SCRIPT_VERSION = 3;
+var SCRIPT_VERSION = 4;
 
 var SH_TX = "거래", SH_SET = "설정", SH_AS = "자산", SH_SNAP = "스냅샷", SH_HOLD = "종목", SH_QUOTE = "_시세";
 
@@ -19,7 +19,8 @@ var HOLD_HEAD = ["계좌", "종목", "수량", "평단가", "현재가", "평가
                  "시세코드", "원시세", "통화", "적용환율", "시세갱신"];
 var SNAP_HEAD = ["월", "당월 납입", "누적 원금", "현금", "ISA", "해외직투", "국내주식", "연금",
                  "기타 투자", "주택청약", "투자 평가액", "부동산", "보험", "부채",
-                 "순자산(부동산 제외)", "순자산", "기록일"];
+                 "순자산(부동산 제외)", "순자산", "기록일", "당월 인출", "시장손익",
+                 "월수익률", "메모", "보유종목(JSON)"];
 var SET_HEAD  = ["키", "값(JSON)"];
 /* 스냅샷 열 순서와 맞물리는 키 (월/기록일 제외) */
 var SNAP_KEYS = ["contrib", "principal", "cash", "isa", "overseas", "domestic", "pension",
@@ -327,7 +328,13 @@ function readSnaps() {
     if (!/^\d{4}-\d{2}$/.test(ym)) return;
     var o = {};
     SNAP_KEYS.forEach(function (k, i) { o[k] = Number(r[i + 1]) || 0; });
-    o.at = toISO(r[SNAP_HEAD.length - 1]);
+    /* v3까지는 기록일이 17번째 열이었다. 새 월별 투자 필드는 그 뒤에 붙인다. */
+    o.at = toISO(r[16]);
+    o.withdrawal = Number(r[17]) || 0;
+    o.marketPnl = Number(r[18]) || 0;
+    o.monthlyRate = Number(r[19]) || 0;
+    o.memo = String(r[20] || "");
+    try { o.holdings = JSON.parse(r[21] || "[]"); } catch (e) { o.holdings = []; }
     map[ym] = o;
   });
   return map;
@@ -417,6 +424,8 @@ function writeHolds(list) {
 
 function writeSnaps(map) {
   var s = sheet(SH_SNAP, SNAP_HEAD);
+  s.getRange(1, 1, 1, SNAP_HEAD.length).setValues([SNAP_HEAD])
+    .setFontWeight("bold").setBackground("#EFEDE4");
   clearBody(s, SNAP_HEAD.length);
   var keys = Object.keys(map || {}).sort();
   if (!keys.length) return;
@@ -425,8 +434,15 @@ function writeSnaps(map) {
     var row = [ym];
     SNAP_KEYS.forEach(function (k) { row.push(Number(v[k]) || 0); });
     row.push(v.at || "");
+    row.push(Number(v.withdrawal) || 0);
+    row.push(Number(v.marketPnl) || 0);
+    row.push(Number(v.monthlyRate) || 0);
+    row.push(v.memo || "");
+    row.push(JSON.stringify(v.holdings || []));
     return row;
   });
   s.getRange(2, 1, vals.length, SNAP_HEAD.length).setValues(vals);
   s.getRange(2, 2, vals.length, SNAP_KEYS.length).setNumberFormat("#,##0");
+  s.getRange(2, 18, vals.length, 2).setNumberFormat("#,##0");
+  s.getRange(2, 20, vals.length, 1).setNumberFormat("0.00%");
 }

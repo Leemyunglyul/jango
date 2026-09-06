@@ -1,6 +1,6 @@
 /* 잔고와 흐름 — 오프라인 캐시.
    앱 파일만 캐시하고, 데이터는 건드리지 않는다(데이터는 localStorage/외부 DB). */
-const CACHE = "jango-v2";
+const CACHE = "jango-v3";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
