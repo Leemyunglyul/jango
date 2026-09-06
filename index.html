@@ -58,7 +58,7 @@ body{
   margin:0; background:var(--ground); color:var(--ink);
   font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
-  padding-bottom:76px;
+  padding-bottom:calc(74px + env(safe-area-inset-bottom));
 }
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer;background:none;border:none;padding:0}
@@ -99,14 +99,21 @@ nav.tabs{
   background:color-mix(in srgb,var(--ground) 92%,transparent);
   backdrop-filter:blur(12px);border-top:1px solid var(--line);
 }
-.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(6,1fr)}
-.tabs button{padding-left:0;padding-right:0}
-.tabs button{padding:10px 0 14px;font-size:12.5px;color:var(--ink3);font-weight:500;position:relative}
-.tabs button[aria-current="page"]{color:var(--ink);font-weight:600}
+nav.tabs{padding-bottom:env(safe-area-inset-bottom)}
+.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+.tabs button{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  padding:9px 0 11px;min-height:58px;font-size:11.5px;color:var(--ink3);font-weight:500;position:relative;
+  -webkit-tap-highlight-color:transparent
+}
+.tabs button svg{width:23px;height:23px;display:block}
+.tabs button:active{background:var(--surface2)}
+.tabs button[aria-current="page"]{color:var(--accent);font-weight:600}
 .tabs button[aria-current="page"]::before{
   content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
-  width:22px;height:2px;background:var(--accent);border-radius:0 0 2px 2px
+  width:30px;height:2.5px;background:var(--accent);border-radius:0 0 3px 3px
 }
+#navSettings{display:none}
 /* ── 다단 레이아웃 (모바일에서는 전부 한 줄로 흐름) ── */
 .cols{display:block}
 .cols>div{min-width:0}
@@ -126,9 +133,14 @@ nav.tabs{
   .shell{display:grid;grid-template-columns:210px minmax(0,1fr);gap:32px;max-width:1000px;margin:0 auto;padding:0 24px}
   nav.tabs{position:sticky;top:64px;bottom:auto;background:none;backdrop-filter:none;border:none;align-self:start;height:max-content;padding-top:16px}
   .tabs-in{grid-template-columns:1fr;gap:2px}
-  .tabs button{text-align:left;padding:9px 12px;border-radius:8px;font-size:14px}
-  .tabs button[aria-current="page"]{background:var(--surface2)}
-  .tabs button[aria-current="page"]::before{top:50%;left:0;transform:translateY(-50%);width:2px;height:16px;border-radius:0 2px 2px 0}
+  .tabs button{flex-direction:row;justify-content:flex-start;gap:11px;text-align:left;
+    padding:10px 13px;border-radius:9px;font-size:14px;min-height:0}
+  .tabs button svg{width:18px;height:18px}
+  .tabs button[aria-current="page"]{background:var(--surface2);color:var(--ink)}
+  .tabs button[aria-current="page"] svg{color:var(--accent)}
+  .tabs button[aria-current="page"]::before{top:50%;left:0;transform:translateY(-50%);width:2.5px;height:18px;border-radius:0 3px 3px 0}
+  #navSettings{display:flex;margin-top:12px;padding-top:16px;border-top:1px solid var(--line-soft);border-radius:0 0 9px 9px}
+  #gearBtn{display:none}
   .app{max-width:100%;padding:0 0 60px;min-width:0}
   .topbar-in{max-width:1000px;padding:14px 24px 12px}
 }
@@ -144,8 +156,15 @@ h2.sec:first-child{margin-top:6px}
 .row:last-child{border-bottom:none}
 .row:hover{background:var(--surface2)}
 .dot{width:8px;height:8px;border-radius:50%;flex:none}
-.row .nm{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.row .mm{color:var(--ink3);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .grow{overflow:hidden}
+/* inline 요소는 overflow가 안 먹어서 말줄임이 안 된다 → inline-block으로 */
+.row .nm{font-weight:500;display:inline-block;max-width:100%;vertical-align:bottom;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .mm{color:var(--ink3);font-size:12.5px;display:inline-block;max-width:100%;vertical-align:bottom;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 설정 화면의 설명글은 잘리는 대신 두 줄로 */
+.setblk .row .nm{display:block}
+.setblk .row .mm{display:block;white-space:normal;overflow:visible;margin-top:2px;line-height:1.45}
 .row .amt{margin-left:auto;font-weight:500;white-space:nowrap}
 .grow{min-width:0;flex:1}
 .tag{font-size:10.5px;font-weight:600;letter-spacing:.03em;padding:2px 6px;border-radius:5px;background:var(--chip);color:var(--ink2);flex:none}
@@ -155,6 +174,9 @@ h2.sec:first-child{margin-top:6px}
 
 /* ---------- record ---------- */
 .amount-stage{padding:14px 4px 6px}
+.seg{display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px;margin-bottom:4px}
+.seg button{padding:8px 22px;border-radius:999px;font-size:14px;font-weight:500;color:var(--ink2)}
+.seg button[aria-pressed="true"]{background:var(--raise);color:var(--ink);box-shadow:var(--shadow);font-weight:600}
 .kindtoggle{display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
 .kindtoggle button{padding:5px 16px;border-radius:999px;font-size:13.5px;font-weight:500;color:var(--ink2)}
 .kindtoggle button[aria-pressed="true"]{background:var(--raise);color:var(--ink);box-shadow:var(--shadow);font-weight:600}
@@ -334,7 +356,7 @@ svg.chart .axis{stroke:var(--line);stroke-width:1}
 }
 @media (prefers-reduced-motion:reduce){.caret{animation:none}}
 
-.toast{position:fixed;left:50%;bottom:92px;transform:translate(-50%,10px);z-index:70;background:var(--ink);color:var(--ground);padding:10px 16px;border-radius:99px;font-size:13px;font-weight:500;opacity:0;transition:.2s;pointer-events:none}
+.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translate(-50%,10px);z-index:70;background:var(--ink);color:var(--ground);padding:10px 16px;border-radius:99px;font-size:13px;font-weight:500;opacity:0;transition:.2s;pointer-events:none}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 @media (min-width:920px){.toast{bottom:28px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -344,6 +366,7 @@ svg.chart .axis{stroke:var(--line);stroke-width:1}
   <div class="topbar-in">
     <div class="brand"><span class="dot"></span>잔고와 흐름</div>
     <div class="topright">
+      <button class="iconbtn" id="gearBtn" aria-label="설정" title="설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6h8M18.5 6H20M4 12h3.5M13.5 12H20M4 18h8M18.5 18H20"></path><circle cx="14.5" cy="6" r="2.2"></circle><circle cx="10" cy="12" r="2.2"></circle><circle cx="14.5" cy="18" r="2.2"></circle></svg></button>
       <button class="iconbtn" id="themeBtn" aria-label="화면 테마"></button>
       <button class="syncchip" id="syncChip" hidden></button>
       <div class="month-nav">
@@ -358,12 +381,11 @@ svg.chart .axis{stroke:var(--line);stroke-width:1}
 <div class="shell">
   <nav class="tabs" aria-label="화면">
     <div class="tabs-in">
-      <button data-tab="record" aria-current="page">기록</button>
-      <button data-tab="list">내역</button>
-      <button data-tab="stats">통계</button>
-      <button data-tab="assets">자산</button>
-      <button data-tab="invest">투자</button>
-      <button data-tab="settings">설정</button>
+      <button data-tab="record" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7.5 18.5 3 20l1.5-4.5L16.5 3.5z"></path></svg><span>기록</span></button>
+      <button data-tab="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12"></path><circle cx="4" cy="6" r="1.4" fill="currentColor" stroke="none"></circle><circle cx="4" cy="12" r="1.4" fill="currentColor" stroke="none"></circle><circle cx="4" cy="18" r="1.4" fill="currentColor" stroke="none"></circle></svg><span>내역</span></button>
+      <button data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 21h18"></path><path d="M6.5 21v-8M12 21V4M17.5 21v-6"></path></svg><span>통계</span></button>
+      <button data-tab="wealth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 8V7a2 2 0 0 1 2-2h11"></path><rect x="3" y="8" width="18" height="12" rx="2.5"></rect><circle cx="16.5" cy="14" r="1.5" fill="currentColor" stroke="none"></circle></svg><span>자산</span></button>
+      <button data-tab="settings" id="navSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6h8M18.5 6H20M4 12h3.5M13.5 12H20M4 18h8M18.5 18H20"></path><circle cx="14.5" cy="6" r="2.2"></circle><circle cx="10" cy="12" r="2.2"></circle><circle cx="14.5" cy="18" r="2.2"></circle></svg><span>설정</span></button>
     </div>
   </nav>
   <main class="app" id="main"></main>
@@ -514,7 +536,8 @@ const SEED_SNAPS = {"2026-08":{
 /* ============================== 상태 ============================== */
 const LSKEY = "jango.v1";
 let S = null, DB = null, dbReady = false;
-const UI = {tab:"record", month:ymOf(todayISO()), kind:"ex", amount:0, cat:"food", date:todayISO(), memo:"", once:false, filter:"all", editing:null};
+const UI = {tab:"record", wealth:"assets", month:ymOf(todayISO()), kind:"ex", amount:0, cat:"food",
+            date:todayISO(), memo:"", once:false, filter:"all", editing:null};
 
 const DATA_VERSION = 2;
 /* 예전 버전에서 저장된 데이터를 새 자산·투자 구조로 올린다.
@@ -1163,6 +1186,16 @@ function shortWon(v){
 }
 
 /* ============================== 화면: 자산 ============================== */
+/* 자산 탭 — 안에서 '자산'과 '투자'를 전환한다 */
+function viewWealth(){
+  const seg = `<div class="seg" role="group" aria-label="자산 화면">
+      <button data-wealth="assets" aria-pressed="${UI.wealth==="assets"}">자산</button>
+      <button data-wealth="invest" aria-pressed="${UI.wealth==="invest"}">투자</button>
+    </div>`;
+  const body = UI.wealth==="invest" ? viewInvest() : viewAssets();
+  return body.replace("<section>", "<section>\n    "+seg);
+}
+
 function viewAssets(){
   const t = investTotals();
   const g = t.g, total = t.total;
@@ -1277,7 +1310,7 @@ function viewInvest(){
               <span class="mm num" style="margin-left:auto">${(x.v/invSum*100).toFixed(1)}%</span>
               <span class="amt num" style="margin-left:14px">${won(x.v)}</span></div>`).join("")}
           </div>`
-          : `<div class="empty">투자 계좌 평가액이 아직 0이에요.<br>자산 탭에서 ISA·해외직투 금액을 넣어주세요.</div>`}
+          : `<div class="empty">투자 계좌 평가액이 아직 0이에요.<br><b>자산</b>에서 ISA·해외직투 금액을 넣어주세요.</div>`}
         </div>
         ${chartPts.length>1?`<h2 class="sec">평가액 vs 납입원금</h2>
         <div class="card pad"><div class="chartwrap">${investChart(chartPts, hasPrincipal)}</div>
@@ -1295,7 +1328,7 @@ function viewInvest(){
             <div class="bar"><i style="width:${(h.v/(holds[0].v||1)*100).toFixed(1)}%;background:var(--invest)"></i></div>
             <div class="delta">${(h.v/(holdTotal||1)*100).toFixed(1)}%${h.cost?` · <span style="color:${h.pl>=0?"var(--crit)":"var(--invest)"}">${h.pl>=0?"+":""}${shortWon(h.pl)}</span>`:""}</div>
           </div>`).join("")
-          : `<div class="empty">등록된 종목이 없어요.<br>자산 탭에서 계좌를 누르고 종목·수량·평단·현재가를 넣으면<br>여기에 비중이 나와요.</div>`}
+          : `<div class="empty">등록된 종목이 없어요.<br><b>자산</b>에서 계좌를 누르고 종목·수량·평단·현재가를<br>넣으면 여기에 비중이 나와요.</div>`}
         </div>
       </div>
     </div>
@@ -1324,13 +1357,13 @@ function viewInvest(){
       </div>
     </div>
     <div class="note" style="margin-top:8px">회색 <b>—</b> 는 아직 값이 없는 칸이에요.
-      자산 탭에서 계좌마다 <b>누적 납입원금</b>과 <b>당월 납입액</b>을 넣으면 채워집니다.
+      <b>자산</b>에서 계좌마다 <b>누적 납입원금</b>과 <b>당월 납입액</b>을 넣으면 채워집니다.
       맨 아래 줄은 지금 이 순간의 값이고, <b>스냅샷 저장</b>을 눌러야 기록으로 굳어져요.</div>
 
     <div class="hstack" style="margin:16px 0 30px">
       <button class="btn sm" id="snapNow">${ymLabel(nowYm)} 스냅샷 저장</button>
       <button class="btn sm ghost" id="addAsset">＋ 계좌 추가</button>
-      <button class="btn sm ghost" id="goAssets">자산 탭에서 편집</button>
+      <button class="btn sm ghost" id="goAssets">계좌 편집</button>
       <button class="btn sm ghost" id="doImport">시트 붙여넣기</button>
     </div>
   </section>`;
@@ -1396,7 +1429,7 @@ function lineChart(pts){
     ${g}<path d="${area}" fill="url(#ag)"></path>
     <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
     ${dots}
-    <text x="${x(pts.length-1).toFixed(1)}" y="${(y(lastP.v)-11).toFixed(1)}" text-anchor="end" style="fill:var(--ink);font-weight:500">${shortWon(lastP.v)}</text>
+    <text x="${x(pts.length-1).toFixed(1)}" y="${(y(lastP.v) < PT+24 ? y(lastP.v)+18 : y(lastP.v)-11).toFixed(1)}" text-anchor="end" style="fill:var(--ink);font-weight:500">${shortWon(lastP.v)}</text>
   </svg>`;
 }
 
@@ -1501,7 +1534,8 @@ function viewSettings(){
 function render(){
   $("#mlabel").textContent = ymLabel(UI.month);
   $$(".tabs button").forEach(b=> b.setAttribute("aria-current", b.dataset.tab===UI.tab?"page":"false"));
-  const v = {record:viewRecord, list:viewList, stats:viewStats, assets:viewAssets, invest:viewInvest, settings:viewSettings}[UI.tab];
+  const v = {record:viewRecord, list:viewList, stats:viewStats, wealth:viewWealth, settings:viewSettings}[UI.tab]
+            || viewRecord;
   $("#main").innerHTML = v();
   window.scrollTo({top:0});
 }
@@ -1964,6 +1998,8 @@ document.addEventListener("click", e=>{
 
   if(d.tab){ UI.tab=d.tab; render(); return; }
   if(t.id==="themeBtn"){ cycleTheme(); return; }
+  if(t.id==="gearBtn"){ UI.tab="settings"; render(); return; }
+  if(d.wealth){ UI.wealth=d.wealth; render(); return; }
   if(t.id==="mprev"){ UI.month=shiftYM(UI.month,-1); render(); return; }
   if(t.id==="mnext"){ UI.month=shiftYM(UI.month, 1); render(); return; }
 
@@ -1991,7 +2027,7 @@ document.addEventListener("click", e=>{
   if(d.asset){ openAssetSheet(d.asset); return; }
   if(t.id==="addAsset"){ openAssetSheet("new_"+uid()); return; }
   if(t.id==="snapNow"){ snapshotNow(); return; }
-  if(t.id==="goAssets"){ UI.tab="assets"; render(); return; }
+  if(t.id==="goAssets"){ UI.wealth="assets"; render(); return; }
 
   /* 설정 */
   if(d.rec){ openRecSheet(d.rec); return; }
