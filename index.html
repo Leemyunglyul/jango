@@ -508,9 +508,35 @@ const LSKEY = "jango.v1";
 let S = null, DB = null, dbReady = false;
 const UI = {tab:"record", month:ymOf(todayISO()), kind:"ex", amount:0, cat:"food", date:todayISO(), memo:"", once:false, filter:"all", editing:null};
 
+const DATA_VERSION = 2;
+/* 예전 버전에서 저장된 데이터를 새 자산·투자 구조로 올린다.
+   거래 내역은 절대 건드리지 않고 자산/스냅샷만 손본다. */
+function migrate(){
+  if((S.v||1) >= DATA_VERSION) return false;
+  const hasNew = (S.assets||[]).some(a=>a.group==="isa"||a.group==="overseas"||a.group==="housing");
+  if(!hasNew){
+    /* 사용자가 직접 넣은 값이 있는 계좌는 살려서 옮긴다 */
+    const keep = {};
+    (S.assets||[]).forEach(a=>{
+      if(["cash","real","insure","pension"].includes(a.group) && !keep[a.group]) keep[a.group]=a;
+    });
+    S.assets = structuredClone(SEED_ASSETS).map(sd=>{
+      const old = keep[sd.group];
+      if(old && ((Number(old.value)||0) || (Number(old.loan)||0))){
+        return {...sd, name:old.name||sd.name, value:Number(old.value)||0,
+                loan:Number(old.loan)||0, monthly:Number(old.monthly)||0};
+      }
+      return sd;
+    });
+    /* 예전 '투자' 한 줄(사실은 누적원금)은 버리고 원본 시트 값으로 교체 */
+    S.snaps = Object.assign({}, S.snaps, structuredClone(SEED_SNAPS));
+  }
+  S.v = DATA_VERSION;
+  return true;
+}
 function seed(){
   return {settings:structuredClone(SEED_SETTINGS), months:structuredClone(SEED_MONTHS),
-          assets:structuredClone(SEED_ASSETS), snaps:structuredClone(SEED_SNAPS), rec:{}, rev:0};
+          assets:structuredClone(SEED_ASSETS), snaps:structuredClone(SEED_SNAPS), rec:{}, rev:0, v:DATA_VERSION};
 }
 function loadLocal(){
   try{ const raw = localStorage.getItem(LSKEY); if(raw){ const p = JSON.parse(raw); if(p&&p.settings) return p; } }catch(e){}
@@ -653,6 +679,7 @@ function adoptRemote(d, rev){
   S.assets = (d.assets && d.assets.length) ? d.assets : S.assets;
   S.snaps  = d.snaps || {};
   S.rev    = rev || 0;
+  if(migrate()) persist("assets","snaps");
   saveLocal();
   return true;
 }
@@ -689,6 +716,7 @@ async function connectDB(){
       if(rc.exists) S.rec = rc.data().done||{};
       S.months = {};
       ms.docs.forEach(d=>{ S.months[d.id] = d.data(); });
+      if(migrate()) persist("assets","snaps");
       saveLocal();
     } else {
       dirty.add("settings"); dirty.add("assets"); dirty.add("snaps"); dirty.add("rec");
@@ -1262,6 +1290,7 @@ function viewInvest(){
       <button class="btn sm" id="snapNow">${ymLabel(nowYm)} 스냅샷 저장</button>
       <button class="btn sm ghost" id="addAsset">＋ 계좌 추가</button>
       <button class="btn sm ghost" id="goAssets">자산 탭에서 편집</button>
+      <button class="btn sm ghost" id="doImport">시트 붙여넣기</button>
     </div>
   </section>`;
 }
@@ -1664,6 +1693,62 @@ function importFlat(rows){
   });
   return Object.keys(out.months).length?out:null;
 }
+/* 계좌 라벨 → 그룹 id */
+function groupFromLabel(s){
+  const t = String(s).replace(/\s/g,"");
+  if(/ISA/i.test(t))          return "isa";
+  if(/해외|직투/.test(t))      return "overseas";
+  if(/국내/.test(t))          return "domestic";
+  if(/연금|IRP/i.test(t))     return "pension";
+  if(/청약/.test(t))          return "housing";
+  if(/현금|예금/.test(t))      return "cash";
+  return "etcinv";
+}
+/* '종목별 포트폴리오' 시트 — 계좌구분·종목명·수량·현재가 열을 찾아 읽는다.
+   오른쪽에 붙은 요약표나 합계 행은 계좌/종목이 비어 있어서 자동으로 걸러진다. */
+function importPortfolio(rows){
+  if(!rows.length) return null;
+  const head = rows[0].map(x=>String(x).trim());
+  const find = re => head.findIndex(h=>re.test(h.replace(/\s/g,"")));
+  const iName = find(/종목명/);
+  if(iName < 0) return null;
+  const iAcct = find(/구분/), iQty = find(/수량|보유/), iPrice = find(/평단|현재가|단가/);
+  const byGroup = {};
+  rows.slice(1).forEach(r=>{
+    const acct = String(r[iAcct]||"").trim(), name = String(r[iName]||"").trim();
+    if(!acct || !name) return;
+    const gid = groupFromLabel(acct);
+    (byGroup[gid] = byGroup[gid]||[]).push({
+      name, qty:numOf(r[iQty]), avg:0, price:numOf(r[iPrice])
+    });
+  });
+  return Object.keys(byGroup).length ? {holdings:byGroup} : null;
+}
+/* '투자 월별 평가' 시트 — 월별 스냅샷으로 들어간다 */
+function importInvestMonthly(rows){
+  if(!rows.length) return null;
+  const head = rows[0].map(x=>String(x).replace(/\s/g,""));
+  if(!head.some(h=>/누적납입원금|당월투자납입/.test(h))) return null;
+  const col = re => head.findIndex(h=>re.test(h));
+  const c = {contrib:col(/당월.*납입/), principal:col(/누적납입원금/), isa:col(/ISA/i),
+             overseas:col(/해외/), domestic:col(/국내/), pension:col(/연금/),
+             housing:col(/청약/), cash:col(/^현금/), tex:col(/부동산제외/)};
+  const snaps = {};
+  rows.slice(1).forEach(r=>{
+    const ym = String(r[0]||"").trim().replace(/[./]/g,"-").slice(0,7);
+    if(!/^\d{4}-\d{2}$/.test(ym)) return;
+    const g = k => c[k]>=0 ? numOf(r[c[k]]) : 0;
+    const o = {at:ym+"-01", contrib:g("contrib"), principal:g("principal"),
+      isa:g("isa"), overseas:g("overseas"), domestic:g("domestic"),
+      pension:g("pension"), housing:g("housing"), cash:g("cash"),
+      etcinv:0, real:0, insure:0, debt:0};
+    o.invest = o.isa + o.overseas + o.domestic + o.pension;
+    o.totalExReal = c.tex>=0 ? numOf(r[c.tex]) : o.invest + o.housing + o.cash;
+    o.total = o.totalExReal;
+    snaps[ym] = o;
+  });
+  return Object.keys(snaps).length ? {snaps} : null;
+}
 function matchCat(label){
   const norm = s => String(s).replace(/[\s,·.()~]/g,"").toLowerCase();
   const n = norm(label);
@@ -1677,9 +1762,11 @@ function matchCat(label){
 }
 function openImport(){
   openSheet(`<h3>CSV 가져오기</h3>
-    <div class="note" style="margin-bottom:12px">두 가지 형식을 알아들어요.<br>
-      ① <b>기존 엑셀 형식</b> — 열이 월(8월, 9월…), 행이 항목인 표를 그대로 붙여넣기<br>
-      ② <b>거래 목록</b> — <code>날짜,분류,금액,메모,일회성</code> 헤더가 있는 표</div>
+    <div class="note" style="margin-bottom:12px">네 가지 형식을 알아들어요. 시트에서 범위 잡고 복사해서 그대로 붙여넣으면 돼요.<br>
+      ① <b>가계부 시트</b> — 열이 월(8월, 9월…), 행이 항목인 표<br>
+      ② <b>거래 목록</b> — <code>날짜,분류,금액,메모,일회성</code> 헤더<br>
+      ③ <b>종목별 포트폴리오</b> — <code>계좌구분, 투자 종목명, 보유수량, 현재가</code> 열이 있으면 종목·비중이 들어가요<br>
+      ④ <b>투자 월별 평가</b> — <code>당월 투자 납입액, 누적납입원금, ISA 평가액…</code> 열이 있으면 월별 기록이 들어가요</div>
     <div class="field"><label>붙여넣기</label><textarea id="imp_t" placeholder=",,8월,,9월&#10;,월급,4,920,000,월급,&#10;…"></textarea></div>
     <div class="field"><div class="row2">
       <div><label>기준 연도 (①일 때)</label><input id="imp_y" type="number" value="${new Date().getFullYear()}"></div>
@@ -1690,17 +1777,30 @@ function openImport(){
         const text=$("#imp_t").value.trim();
         if(!text) return toast("내용을 붙여넣어 주세요");
         const rows=parseCSV(text);
-        const res = importFlat(rows) || importPivot(rows, Number($("#imp_y").value)||new Date().getFullYear());
+        const res = importPortfolio(rows) || importInvestMonthly(rows) || importFlat(rows)
+                 || importPivot(rows, Number($("#imp_y").value)||new Date().getFullYear());
         if(!res) return toast("형식을 못 읽었어요");
         const mode=$("#imp_m").value;
         let n=0;
-        Object.entries(res.months).forEach(([ym,d])=>{
+        if(res.holdings){
+          Object.entries(res.holdings).forEach(([gid,hs])=>{
+            let a = S.assets.find(x=>x.group===gid);
+            if(!a){ a = {id:uid(), name:(GROUPS.find(g=>g.id===gid)||{}).name||gid, group:gid,
+                         value:0, principal:0, monthly:0, note:"", holdings:[]}; S.assets.push(a); }
+            a.holdings = hs; a.note = ""; n += hs.length;
+          });
+          dirty.add("assets");
+        }
+        if(res.snaps){
+          Object.entries(res.snaps).forEach(([ym,v])=>{
+            S.snaps[ym] = mode==="replace" ? v : {...(S.snaps[ym]||{}), ...v}; n++;
+          });
+          dirty.add("snaps");
+        }
+        Object.entries(res.months||{}).forEach(([ym,d])=>{
           if(mode==="replace" || !S.months[ym]) S.months[ym]={items:d.items};
           else S.months[ym].items = S.months[ym].items.concat(d.items);
           n+=d.items.length; dirty.add("month:"+ym);
-        });
-        if(res.snaps) Object.entries(res.snaps).forEach(([ym,sn])=>{
-          S.snaps[ym]={...(S.snaps[ym]||{}), ...sn, total:(sn.cash||0)+(sn.invest||0)}; dirty.add("snaps");
         });
         dirty.add("settings"); persist();
         closeSheet(); render(); toast(n+"건 가져왔어요");
@@ -2054,6 +2154,7 @@ if(!S.settings.quick) S.settings.quick = SEED_SETTINGS.quick;
 if(!S.snaps) S.snaps = {};
 if(!S.assets) S.assets = structuredClone(SEED_ASSETS);
 if(S.rev==null) S.rev = 0;
+if(migrate()) persist("assets","snaps");
 loadSyncCfg();
 render();
 setSync(SYNC.url ? "busy" : "off");
