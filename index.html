@@ -1628,13 +1628,21 @@ function snapshotNow(){
 }
 
 /* ============================== 가져오기 ============================== */
-function parseCSV(text){
+/* 구분자 자동 판별 — 구글 시트/엑셀에서 복사하면 탭, 파일로 받으면 쉼표 */
+function sniffDelim(text){
+  const line = (text.split("\n").find(l=>l.trim()) || "");
+  const tabs = (line.match(/\t/g)||[]).length;
+  const commas = (line.match(/,/g)||[]).length;
+  return tabs >= 1 && tabs >= commas/3 ? "\t" : ",";
+}
+function parseCSV(text, delim){
+  const D = delim || sniffDelim(text);
   const rows=[]; let row=[], cell="", q=false;
   for(let i=0;i<text.length;i++){
     const ch=text[i];
     if(q){ if(ch==='"'){ if(text[i+1]==='"'){cell+='"';i++;} else q=false; } else cell+=ch; }
     else if(ch==='"') q=true;
-    else if(ch===","){ row.push(cell); cell=""; }
+    else if(ch===D){ row.push(cell); cell=""; }
     else if(ch==="\n"){ row.push(cell); rows.push(row); row=[]; cell=""; }
     else if(ch!=="\r") cell+=ch;
   }
@@ -1706,15 +1714,24 @@ function groupFromLabel(s){
 }
 /* '종목별 포트폴리오' 시트 — 계좌구분·종목명·수량·현재가 열을 찾아 읽는다.
    오른쪽에 붙은 요약표나 합계 행은 계좌/종목이 비어 있어서 자동으로 걸러진다. */
+/* 머리글 행을 앞쪽 몇 줄에서 찾는다 — 시트에서 범위를 조금 넓게 잡아 복사해도 되도록 */
+function findHead(rows, re){
+  for(let i=0; i<Math.min(6, rows.length); i++){
+    if(rows[i].some(c=>re.test(String(c).replace(/\s/g,"")))) return i;
+  }
+  return -1;
+}
 function importPortfolio(rows){
   if(!rows.length) return null;
-  const head = rows[0].map(x=>String(x).trim());
+  const hi = findHead(rows, /종목명/);
+  if(hi < 0) return null;
+  const head = rows[hi].map(x=>String(x).trim());
   const find = re => head.findIndex(h=>re.test(h.replace(/\s/g,"")));
   const iName = find(/종목명/);
   if(iName < 0) return null;
   const iAcct = find(/구분/), iQty = find(/수량|보유/), iPrice = find(/평단|현재가|단가/);
   const byGroup = {};
-  rows.slice(1).forEach(r=>{
+  rows.slice(hi+1).forEach(r=>{
     const acct = String(r[iAcct]||"").trim(), name = String(r[iName]||"").trim();
     if(!acct || !name) return;
     const gid = groupFromLabel(acct);
@@ -1727,14 +1744,15 @@ function importPortfolio(rows){
 /* '투자 월별 평가' 시트 — 월별 스냅샷으로 들어간다 */
 function importInvestMonthly(rows){
   if(!rows.length) return null;
-  const head = rows[0].map(x=>String(x).replace(/\s/g,""));
-  if(!head.some(h=>/누적납입원금|당월투자납입/.test(h))) return null;
+  const hi = findHead(rows, /누적납입원금|당월투자납입/);
+  if(hi < 0) return null;
+  const head = rows[hi].map(x=>String(x).replace(/\s/g,""));
   const col = re => head.findIndex(h=>re.test(h));
   const c = {contrib:col(/당월.*납입/), principal:col(/누적납입원금/), isa:col(/ISA/i),
              overseas:col(/해외/), domestic:col(/국내/), pension:col(/연금/),
              housing:col(/청약/), cash:col(/^현금/), tex:col(/부동산제외/)};
   const snaps = {};
-  rows.slice(1).forEach(r=>{
+  rows.slice(hi+1).forEach(r=>{
     const ym = String(r[0]||"").trim().replace(/[./]/g,"-").slice(0,7);
     if(!/^\d{4}-\d{2}$/.test(ym)) return;
     const g = k => c[k]>=0 ? numOf(r[c[k]]) : 0;
@@ -1767,12 +1785,31 @@ function openImport(){
       ② <b>거래 목록</b> — <code>날짜,분류,금액,메모,일회성</code> 헤더<br>
       ③ <b>종목별 포트폴리오</b> — <code>계좌구분, 투자 종목명, 보유수량, 현재가</code> 열이 있으면 종목·비중이 들어가요<br>
       ④ <b>투자 월별 평가</b> — <code>당월 투자 납입액, 누적납입원금, ISA 평가액…</code> 열이 있으면 월별 기록이 들어가요</div>
-    <div class="field"><label>붙여넣기</label><textarea id="imp_t" placeholder=",,8월,,9월&#10;,월급,4,920,000,월급,&#10;…"></textarea></div>
+    <div class="field"><label>붙여넣기</label>
+      <textarea id="imp_t" placeholder="시트에서 머리글 행까지 포함해 범위를 잡고 복사한 뒤 여기에 붙여넣으세요"></textarea>
+      <div id="imp_hint" class="note"></div></div>
     <div class="field"><div class="row2">
       <div><label>기준 연도 (①일 때)</label><input id="imp_y" type="number" value="${new Date().getFullYear()}"></div>
       <div><label>기존 데이터</label><select id="imp_m"><option value="merge">같은 달에 추가</option><option value="replace">같은 달 덮어쓰기</option></select></div>
     </div></div>
     <button class="btn" id="imp_go">가져오기</button>`, ()=>{
+      const ta = $("#imp_t"), hint = $("#imp_hint");
+      const sniff = ()=>{
+        const text = ta.value.trim();
+        if(!text){ hint.textContent=""; return; }
+        const rows = parseCSV(text);
+        const kind = importPortfolio(rows) ? "종목별 포트폴리오"
+                   : importInvestMonthly(rows) ? "투자 월별 평가"
+                   : importFlat(rows) ? "거래 목록"
+                   : importPivot(rows, 2000) ? "가계부 시트(월별 열)"
+                   : null;
+        const d = sniffDelim(text)==="\t" ? "탭 구분(시트에서 복사)" : "쉼표 구분(CSV 파일)";
+        hint.innerHTML = kind
+          ? `<b style="color:var(--accent)">${kind}</b>로 읽었어요 · ${rows.length}줄 · ${d}`
+          : `<b style="color:var(--crit)">형식을 못 알아봤어요.</b> 머리글 행(맨 윗줄)까지 같이 복사했는지 확인해 주세요.`;
+      };
+      ta.oninput = ()=>{ clearTimeout(ta._t); ta._t = setTimeout(sniff, 250); };
+      ta.onpaste = ()=> setTimeout(sniff, 60);
       $("#imp_go").onclick=()=>{
         const text=$("#imp_t").value.trim();
         if(!text) return toast("내용을 붙여넣어 주세요");
