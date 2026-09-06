@@ -80,6 +80,10 @@ button{cursor:pointer;background:none;border:none;padding:0}
 .month-nav button{width:28px;height:28px;border-radius:50%;color:var(--ink2);display:grid;place-items:center;font-size:14px}
 .month-nav button:hover{background:var(--chip);color:var(--ink)}
 .month-nav .m{padding:0 6px;font-size:13.5px;font-weight:500;min-width:62px;text-align:center}
+.iconbtn{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--surface);
+  display:grid;place-items:center;color:var(--ink2);flex:none}
+.iconbtn:hover{color:var(--ink);border-color:var(--ink3)}
+.iconbtn svg{width:15px;height:15px;display:block}
 .syncchip{display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;color:var(--ink2);
   padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface);white-space:nowrap}
 .syncchip::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ink3);flex:none}
@@ -105,6 +109,7 @@ nav.tabs{
 }
 /* ── 다단 레이아웃 (모바일에서는 전부 한 줄로 흐름) ── */
 .cols{display:block}
+.cols>div{min-width:0}
 .setgrid{display:block}
 .assetgrid{display:block}
 .cols>div>h2.sec:first-child{margin-top:26px}
@@ -124,7 +129,7 @@ nav.tabs{
   .tabs button{text-align:left;padding:9px 12px;border-radius:8px;font-size:14px}
   .tabs button[aria-current="page"]{background:var(--surface2)}
   .tabs button[aria-current="page"]::before{top:50%;left:0;transform:translateY(-50%);width:2px;height:16px;border-radius:0 2px 2px 0}
-  .app{max-width:none;padding:0 0 60px}
+  .app{max-width:100%;padding:0 0 60px;min-width:0}
   .topbar-in{max-width:1000px;padding:14px 24px 12px}
 }
 section{padding:18px 0 8px}
@@ -243,6 +248,8 @@ svg.chart .axis{stroke:var(--line);stroke-width:1}
 .tip .tr b{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-weight:500}
 
 /* ---------- 데이터 표 ---------- */
+.card-table{overflow:hidden}
+.tablewrap{overflow-x:auto;max-width:100%}
 .dtable{width:100%;border-collapse:collapse;font-size:12.5px;white-space:nowrap}
 .dtable th{font-size:11px;font-weight:600;color:var(--ink3);text-align:right;padding:9px 11px;
   border-bottom:1px solid var(--line);letter-spacing:.02em;background:var(--surface)}
@@ -337,6 +344,7 @@ svg.chart .axis{stroke:var(--line);stroke-width:1}
   <div class="topbar-in">
     <div class="brand"><span class="dot"></span>잔고와 흐름</div>
     <div class="topright">
+      <button class="iconbtn" id="themeBtn" aria-label="화면 테마"></button>
       <button class="syncchip" id="syncChip" hidden></button>
       <div class="month-nav">
         <button id="mprev" aria-label="이전 달">‹</button>
@@ -570,8 +578,35 @@ async function pushDB(){
     setSync("저장됨");
   }catch(e){ setSync("오프라인 저장"); }
 }
+/* ══════════ 화면 테마 ══════════
+   시스템(호스트 설정 따라감) → 라이트 → 다크 순으로 돈다. */
+const THEME_KEY = "jango.theme";
+const THEMES_UI = {
+  auto:  {label:"시스템 설정", icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"></path></svg>`},
+  light: {label:"밝게",       icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>`},
+  dark:  {label:"어둡게",     icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"></path></svg>`}
+};
+function themePref(){
+  try{ const v = localStorage.getItem(THEME_KEY); if(v==="light"||v==="dark") return v; }catch(e){}
+  return "auto";
+}
+function applyTheme(){
+  const t = themePref(), r = document.documentElement;
+  if(t==="auto") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", t);
+  const b = document.getElementById("themeBtn");
+  if(b){ b.innerHTML = THEMES_UI[t].icon; b.title = "화면: "+THEMES_UI[t].label+" (눌러서 바꾸기)"; }
+}
+function cycleTheme(){
+  const order = ["auto","light","dark"];
+  const next = order[(order.indexOf(themePref())+1) % order.length];
+  try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
+  applyTheme();
+  toast("화면 "+THEMES_UI[next].label);
+}
+
 /* ══════════ Google 시트 동기화 ══════════ */
-const SYNC = {url:"", token:"", state:"off", at:null, busy:false};
+const NEED_SCRIPT_VERSION = 2;   // 시트 백엔드(코드.gs)가 이 버전 이상이어야 투자 데이터가 온전히 저장된다
+const SYNC = {url:"", token:"", state:"off", at:null, busy:false, ver:null, sheetName:"", stale:false};
 
 function loadSyncCfg(){
   try{ const c = JSON.parse(localStorage.getItem("jango.sync")||"null");
@@ -688,11 +723,16 @@ async function syncBoot(){
   if(!SYNC.url) return;
   setSync("busy");
   try{
+    try{
+      const pg = await gasCall({action:"ping"});
+      SYNC.ver = pg.version||1; SYNC.sheetName = pg.name||"";
+      SYNC.stale = SYNC.ver < NEED_SCRIPT_VERSION;
+    }catch(e){}
     const j = await gasCall({action:"load"});
     const serverRev = j.rev||0, localRev = S.rev||0;
     if(serverRev > localRev && adoptRemote(j.data, serverRev)){ render(); }
     else if(localRev > serverRev){ await pushSheet(true); }
-    setSync("ok", Date.now());
+    setSync(SYNC.stale ? "err" : "ok", Date.now());
   }catch(e){
     setSync("err"); console.warn("시트 연결 실패:", e.message);
   }
@@ -1261,7 +1301,7 @@ function viewInvest(){
     </div>
 
     <h2 class="sec">월별 투자 기록</h2>
-    <div class="card" style="overflow-x:auto">
+    <div class="card card-table"><div class="tablewrap">
       <table class="dtable">
         <thead><tr>
           <th>월</th><th>당월 납입</th><th>누적 원금</th>
@@ -1281,6 +1321,7 @@ function viewInvest(){
         </tr>`).join("")}
         </tbody>
       </table>
+      </div>
     </div>
     <div class="note" style="margin-top:8px">회색 <b>—</b> 는 아직 값이 없는 칸이에요.
       자산 탭에서 계좌마다 <b>누적 납입원금</b>과 <b>당월 납입액</b>을 넣으면 채워집니다.
@@ -1296,7 +1337,7 @@ function viewInvest(){
 }
 
 function investChart(pts, hasP){
-  const W = Math.max(cw(0.5), pts.length*76+70), H=190, PL=58, PR=28, PT=14, PB=30;
+  const W = Math.max(cw(0.5), pts.length*76+70), H=190, PL=58, PR=36, PT=14, PB=30;
   const max = Math.max(1, ...pts.map(p=>Math.max(p.v, hasP?p.p:0)));
   const step = niceStep(max), top = Math.ceil(max/step)*step;
   const x = i => PL + (W-PL-PR) * (pts.length===1?0.5:i/(pts.length-1));
@@ -1412,9 +1453,11 @@ function viewSettings(){
     <h2 class="sec">동기화</h2>
     <div class="card rows">
       ${SYNC.url? `
-        <div class="row"><span class="dot" style="background:var(--accent)"></span>
-          <span class="grow"><span class="nm">구글 시트에 연결됨</span>
-          <span class="mm">${SYNC.at? new Date(SYNC.at).toLocaleString("ko-KR")+" 저장":"아직 저장 전"}</span></span></div>
+        <div class="row"><span class="dot" style="background:${SYNC.stale?"var(--crit)":"var(--accent)"}"></span>
+          <span class="grow"><span class="nm">${SYNC.sheetName?esc(SYNC.sheetName):"구글 시트"}에 연결됨</span>
+          <span class="mm">${SYNC.at? new Date(SYNC.at).toLocaleString("ko-KR")+" 저장":"아직 저장 전"}${SYNC.ver?` · 백엔드 v${SYNC.ver}`:""}</span></span></div>
+        <button class="row" id="syncDiag"><span class="grow"><span class="nm">연결 점검</span>
+          <span class="mm">시트에 실제로 뭐가 들어갔는지 확인</span></span><span class="mm">›</span></button>
         <button class="row" id="syncPull"><span class="grow"><span class="nm">시트에서 내려받기</span>
           <span class="mm">시트 내용으로 앱을 덮어써요</span></span><span class="mm">›</span></button>
         <button class="row" id="syncPush"><span class="grow"><span class="nm">시트로 올리기</span>
@@ -1426,6 +1469,10 @@ function viewSettings(){
           <span class="mm">기록이 내 드라이브 시트에 쌓이고 폰·PC가 같이 맞춰져요</span></span><span class="mm">›</span></button>
       `}
     </div>
+    ${SYNC.stale?`<div class="banner" style="margin-top:10px">
+      <div><div class="t">시트 백엔드가 구버전이에요 (v${SYNC.ver})</div>
+      <div class="s">종목·투자 데이터가 시트에 저장되지 않아요. <b>코드.gs</b>를 다시 붙여넣고
+        배포 관리 → 연필 → 버전: <b>새 버전</b> → 배포 하세요.</div></div></div>`:""}
     ${SYNC.url?"":`<div class="note" style="margin-top:8px">연결하지 않으면 이 브라우저에만 저장돼요. 폰과 PC가 따로 놉니다.</div>`}
     </div>
 
@@ -1916,6 +1963,7 @@ document.addEventListener("click", e=>{
   const d = t.dataset||{};
 
   if(d.tab){ UI.tab=d.tab; render(); return; }
+  if(t.id==="themeBtn"){ cycleTheme(); return; }
   if(t.id==="mprev"){ UI.month=shiftYM(UI.month,-1); render(); return; }
   if(t.id==="mnext"){ UI.month=shiftYM(UI.month, 1); render(); return; }
 
@@ -1954,6 +2002,7 @@ document.addEventListener("click", e=>{
   if(d.quickedit!==undefined){ openQuickSheet(Number(d.quickedit)); return; }
   if(t.id==="addQuick"){ openQuickSheet(-1); return; }
   if(t.id==="syncSetup"){ openSyncSheet(); return; }
+  if(t.id==="syncDiag"){ openDiagSheet(); return; }
   if(t.id==="syncChip"){ UI.tab="settings"; render(); return; }
   if(t.id==="syncPush"){ dirty.clear(); pushSheet(true).then(()=>{ render(); toast("시트에 올렸어요"); }); return; }
   if(t.id==="syncPull"){
@@ -2107,6 +2156,43 @@ function openQuickSheet(i){
     });
 }
 
+function openDiagSheet(){
+  openSheet(`<h3>연결 점검</h3><div class="note" id="dg">확인 중…</div>`, async ()=>{
+    const el = $("#dg");
+    if(!SYNC.url){ el.innerHTML = "<b>아직 구글 시트에 연결되지 않았어요.</b><br>설정 → 동기화 → 구글 시트 연결하기부터 해주세요."; return; }
+    try{
+      const j = await gasCall({action:"diag"});
+      SYNC.ver = j.version||1; SYNC.sheetName = j.name||"";
+      SYNC.stale = SYNC.ver < NEED_SCRIPT_VERSION;
+      const expect = {"거래":"거래 내역","자산":"계좌·자산","종목":"보유 종목","스냅샷":"월별 기록","설정":"분류·예산 등"};
+      const rowsHtml = (j.sheets||[]).map(s=>`<tr>
+        <td class="hl">${esc(s.name)}</td>
+        <td class="${s.rows>0?"":"z"}">${s.rows<0?"탭 없음":s.rows+"줄"}</td>
+        <td class="z" style="text-align:left">${expect[s.name]||""}</td></tr>`).join("");
+      const noHold = (j.sheets||[]).some(s=>s.name==="종목" && s.rows<0);
+      el.innerHTML = `
+        <div style="margin-bottom:10px">시트 <b>${esc(j.name||"")}</b> · 백엔드 <b>v${j.version||1}</b> · 저장 횟수 ${j.rev||0}</div>
+        <div style="overflow-x:auto"><table class="dtable"><thead><tr><th>탭</th><th>내용</th><th style="text-align:left">설명</th></tr></thead>
+        <tbody>${rowsHtml}</tbody></table></div>
+        ${SYNC.stale ? `<div class="banner" style="margin-top:14px"><div>
+            <div class="t">백엔드가 구버전이라 투자 데이터가 안 들어가요</div>
+            <div class="s">받은 파일의 <b>apps-script/코드.gs</b>를 편집기에 <b>전부 다시 붙여넣고</b> 저장 →
+              <b>배포 관리 → 연필(편집) → 버전: 새 버전 → 배포</b>.
+              그다음 여기서 <b>시트로 올리기</b>를 누르세요.</div></div></div>`
+          : noHold ? `<div class="banner" style="margin-top:14px"><div>
+            <div class="t">'종목' 탭이 아직 없어요</div>
+            <div class="s">한 번도 저장이 안 됐다는 뜻이에요. <b>시트로 올리기</b>를 눌러주세요.</div></div></div>`
+          : `<div style="margin-top:14px;color:var(--good);font-weight:500">정상이에요. 앱에서 기록하면 1~2초 뒤 시트에 반영돼요.</div>`}
+        <div style="margin-top:14px"><button class="btn sm" id="dg_push">지금 시트로 올리기</button></div>`;
+      const pb = $("#dg_push");
+      if(pb) pb.onclick = async ()=>{ pb.textContent="올리는 중…"; dirty.clear(); await pushSheet(true);
+        closeSheet(); render(); toast("시트로 올렸어요"); };
+    }catch(e){
+      el.innerHTML = `<b style="color:var(--crit)">${esc(e.message)}</b><br><br>
+        배포 URL이 <code>/exec</code>로 끝나는지, 액세스가 <b>모든 사용자</b>인지, 토큰이 맞는지 확인해 주세요.`;
+    }
+  });
+}
 function openSyncSheet(){
   openSheet(`<h3>구글 시트 연결</h3>
     <div class="note" style="margin-bottom:14px">
@@ -2129,6 +2215,8 @@ function openSyncSheet(){
         msg("확인 중…");
         try{
           const ping = await gasCall({action:"ping"}, url, token);
+          SYNC.ver = ping.version||1; SYNC.sheetName = ping.name||"";
+          SYNC.stale = SYNC.ver < NEED_SCRIPT_VERSION;
           const load = await gasCall({action:"load"}, url, token);
           const remote = load.data||{};
           const hasRemote = remote.settings && Array.isArray(remote.settings.cats) && remote.settings.cats.length;
@@ -2186,6 +2274,7 @@ document.addEventListener("pointerout", e=>{ if(e.target.closest?.("[data-tip]")
 document.addEventListener("pointerdown", e=>{ const h=e.target.closest?.("[data-tip]"); if(h) showTip(h,e); else hideTip(); });
 
 /* ============================== 부트 ============================== */
+applyTheme();
 S = loadLocal();
 if(!S.settings.quick) S.settings.quick = SEED_SETTINGS.quick;
 if(!S.snaps) S.snaps = {};

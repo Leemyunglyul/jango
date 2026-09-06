@@ -8,6 +8,9 @@
  *  4) 배포 → 새 배포 → 웹 앱 / 실행: 나 / 액세스: 모든 사용자
  */
 
+/* 이 값을 앱이 확인한다. 코드를 갱신했는데 재배포를 안 하면 앱이 알아채고 알려준다. */
+var SCRIPT_VERSION = 2;
+
 var SH_TX = "거래", SH_SET = "설정", SH_AS = "자산", SH_SNAP = "스냅샷", SH_HOLD = "종목";
 
 var TX_HEAD   = ["날짜", "월", "구분", "분류", "금액", "메모", "일회성", "ID", "분류ID"];
@@ -39,7 +42,15 @@ function handle(e) {
 
     var action = body.action || p.action || "load";
 
-    if (action === "ping") return out({ ok: true, name: ss().getName(), rev: getRev() });
+    if (action === "ping" || action === "diag") {
+      return out({
+        ok: true, name: ss().getName(), rev: getRev(), version: SCRIPT_VERSION,
+        sheets: [SH_TX, SH_AS, SH_HOLD, SH_SNAP, SH_SET].map(function (n) {
+          var sh = ss().getSheetByName(n);
+          return { name: n, rows: sh ? Math.max(0, sh.getLastRow() - 1) : -1 };
+        })
+      });
+    }
     if (action === "load") return out({ ok: true, rev: getRev(), data: readAll() });
 
     if (action === "save") {
