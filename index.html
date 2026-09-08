@@ -2315,7 +2315,7 @@
       }
 
       /* ══════════ Google 시트 동기화 ══════════ */
-      const NEED_SCRIPT_VERSION = 5; // v5부터 별도 '월별 투자기록' 시트와 무료 시세·환율을 지원한다
+      const NEED_SCRIPT_VERSION = 6; // v6부터 시작 시 항상 시트를 읽고 원본 월별 투자기록도 자동 이관한다
       const SYNC = {
         url: "",
         token: "",
@@ -2413,7 +2413,7 @@
         if (!SYNC.url)
           throw new Error("먼저 설정에서 구글 시트를 연결해 주세요.");
         if (SYNC.stale)
-          throw new Error("Apps Script를 최신 코드(v5)로 다시 배포해 주세요.");
+          throw new Error("Apps Script를 최신 코드(v6)로 다시 배포해 주세요.");
         const symbols = quoteSymbols(only);
         if (!symbols.length)
           throw new Error("시세코드가 있는 종목이 없어요.");
@@ -2599,8 +2599,33 @@
         return true;
       }
 
+      /* 월별 투자기록은 Google Sheet를 장부 원본으로 본다.
+         전체 상태를 채택할 수 없는 경우에도 시트의 월 기록은 앱에 합친다. */
+      function mergeRemoteInvestMonths(d, onlyMissing) {
+        const remote = d && (d.investMonths || d.snaps);
+        if (!remote || typeof remote !== "object") return false;
+        let changed = false;
+        S.investMonths = S.investMonths || {};
+        Object.keys(remote).forEach((ym) => {
+          if (!/^\d{4}-\d{2}$/.test(ym)) return;
+          if (onlyMissing && S.investMonths[ym]) return;
+          const before = JSON.stringify(S.investMonths[ym] || null);
+          const after = JSON.stringify(remote[ym] || null);
+          if (before !== after) {
+            S.investMonths[ym] = remote[ym];
+            changed = true;
+          }
+        });
+        if (changed) {
+          recalcInvestmentMonths();
+          saveLocal();
+        }
+        return changed;
+      }
+
       async function syncBoot() {
-        if (!SYNC.url) return;
+        if (!SYNC.url || SYNC.bootBusy) return;
+        SYNC.bootBusy = true;
         setSync("busy");
         try {
           try {
@@ -2612,15 +2637,23 @@
           const j = await gasCall({ action: "load" });
           const serverRev = j.rev || 0,
             localRev = S.rev || 0;
-          if (serverRev > localRev && adoptRemote(j.data, serverRev)) {
-            render();
+          /* 로컬에 아직 못 올린 변경이 있으면 같은 달의 로컬 값을 지키고,
+             시트에만 있는 과거 달만 보충한다. */
+          let changed = mergeRemoteInvestMonths(j.data, localRev > serverRev);
+          /* 시트를 직접 편집하면 REV가 오르지 않는다. 같을 때도 다시 채택해야
+             앱 시작 시 수동으로 고친 시트 내용이 즉시 반영된다. */
+          if (serverRev >= localRev) {
+            changed = adoptRemote(j.data, serverRev) || changed;
           } else if (localRev > serverRev) {
             await pushSheet(true);
           }
+          if (changed) render();
           setSync(SYNC.stale ? "err" : "ok", Date.now());
         } catch (e) {
           setSync("err");
           console.warn("시트 연결 실패:", e.message);
+        } finally {
+          SYNC.bootBusy = false;
         }
       }
 

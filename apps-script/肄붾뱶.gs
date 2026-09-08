@@ -9,9 +9,9 @@
  */
 
 /* 이 값을 앱이 확인한다. 코드를 갱신했는데 재배포를 안 하면 앱이 알아채고 알려준다. */
-var SCRIPT_VERSION = 5;
+var SCRIPT_VERSION = 6;
 
-var SH_TX = "거래", SH_SET = "설정", SH_AS = "자산", SH_SNAP = "스냅샷", SH_INVEST = "월별 투자기록", SH_HOLD = "종목", SH_QUOTE = "_시세";
+var SH_TX = "거래", SH_SET = "설정", SH_AS = "자산", SH_SNAP = "스냅샷", SH_INVEST = "월별 투자기록", SH_INVEST_SOURCE = "투자 월별 평가", SH_HOLD = "종목", SH_QUOTE = "_시세";
 
 var TX_HEAD   = ["날짜", "월", "구분", "분류", "금액", "메모", "일회성", "ID", "분류ID"];
 var AS_HEAD   = ["이름", "구분", "평가액", "누적 납입원금", "당월 납입액", "대출잔액", "메모", "ID", "구분ID"];
@@ -121,6 +121,22 @@ function toDate(s) {
 function toISOTime(v) {
   if (v instanceof Date) return Utilities.formatDate(v, "UTC", "yyyy-MM-dd'T'HH:mm:ss'Z'");
   return String(v || "");
+}
+function monthKey(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, tz(), "yyyy-MM");
+  var s = String(v || "").trim();
+  var full = s.match(/(\d{4})\D+(\d{1,2})/);
+  if (full) return full[1] + "-" + ("0" + full[2]).slice(-2);
+  var shortMonth = s.match(/^(\d{1,2})\s*월/);
+  if (shortMonth) {
+    return Utilities.formatDate(new Date(), tz(), "yyyy") + "-" +
+      ("0" + shortMonth[1]).slice(-2);
+  }
+  return "";
+}
+function cellNumber(v) {
+  if (typeof v === "number") return isNaN(v) ? 0 : v;
+  return Number(String(v || "").replace(/[^0-9.-]/g, "")) || 0;
 }
 
 /* 무료 시세 공급원으로 GOOGLEFINANCE(미국·환율)와 네이버 증권(국내)을 쓴다.
@@ -337,7 +353,7 @@ function readLegacySnaps() {
   if (n < 2) return map;
   /* v4가 스냅샷 뒤에 붙였던 월별 투자 필드까지 포함해 읽는다. */
   s.getRange(2, 1, n - 1, 22).getValues().forEach(function (r) {
-    var ym = String(r[0] || "").slice(0, 7);
+    var ym = monthKey(r[0]);
     if (!/^\d{4}-\d{2}$/.test(ym)) return;
     var o = {};
     SNAP_KEYS.forEach(function (k, i) { o[k] = Number(r[i + 1]) || 0; });
@@ -352,27 +368,86 @@ function readLegacySnaps() {
   return map;
 }
 
+/* 사용자가 원래 관리하던 '투자 월별 평가' 탭을 읽는다.
+   열 위치가 바뀌어도 머리글 이름으로 찾아서 새 월별 장부 형식으로 변환한다. */
+function readOriginalInvestMonths() {
+  var s = ss().getSheetByName(SH_INVEST_SOURCE), map = {};
+  if (!s || s.getLastRow() < 2 || s.getLastColumn() < 1) return map;
+  var values = s.getDataRange().getValues(), hi = -1, head = [];
+  for (var i = 0; i < Math.min(values.length, 10); i++) {
+    var normalized = values[i].map(function (v) { return String(v || "").replace(/\s/g, ""); });
+    if (normalized.join("|").match(/누적납입원금|당월.*투자.*납입|ISA.*평가/)) {
+      hi = i;
+      head = normalized;
+      break;
+    }
+  }
+  if (hi < 0) return map;
+
+  function col(re) {
+    for (var j = 0; j < head.length; j++) if (re.test(head[j])) return j;
+    return -1;
+  }
+  var c = {
+    month: col(/^월$|년월|기준월/),
+    contrib: col(/당월.*(투자)?납입/),
+    withdrawal: col(/당월.*인출|인출액/),
+    principal: col(/누적.*(납입)?원금/),
+    invest: col(/^투자평가액$|총.*투자.*평가/),
+    isa: col(/ISA.*평가|^ISA$/i),
+    overseas: col(/해외.*평가|^해외/),
+    domestic: col(/국내.*평가|^국내/),
+    pension: col(/연금.*평가|IRP.*평가|^연금/i),
+    etcinv: col(/기타.*투자.*평가|^기타투자/),
+    memo: col(/메모|비고/)
+  };
+  if (c.month < 0) c.month = 0;
+  values.slice(hi + 1).forEach(function (r) {
+    var ym = monthKey(r[c.month]);
+    if (!/^\d{4}-\d{2}$/.test(ym)) return;
+    function n(k) { return c[k] >= 0 ? cellNumber(r[c[k]]) : 0; }
+    var isa = n("isa"), overseas = n("overseas"), domestic = n("domestic"),
+        pension = n("pension"), etcinv = n("etcinv"), invest = n("invest");
+    if (!invest) invest = isa + overseas + domestic + pension + etcinv;
+    map[ym] = {
+      at: ym + "-01", contrib: n("contrib"), withdrawal: n("withdrawal"),
+      invest: invest, principal: n("principal"), marketPnl: 0, monthlyRate: 0,
+      isa: isa, overseas: overseas, domestic: domestic, pension: pension,
+      etcinv: etcinv, memo: c.memo >= 0 ? String(r[c.memo] || "") : "",
+      holdings: []
+    };
+  });
+  return map;
+}
+
 function readInvestMonths() {
   var s = ss().getSheetByName(SH_INVEST), map = {};
-  if (!s || s.getLastRow() < 2) {
-    var legacy = readLegacySnaps();
-    if (Object.keys(legacy).length) writeInvestMonths(legacy);
-    return legacy;
+  if (s && s.getLastRow() >= 2) {
+    s.getRange(2, 1, s.getLastRow() - 1, INVEST_HEAD.length).getValues().forEach(function (r) {
+      var ym = monthKey(r[0]);
+      if (!/^\d{4}-\d{2}$/.test(ym)) return;
+      var o = {
+        at: toISO(r[1]), contrib: Number(r[2]) || 0, withdrawal: Number(r[3]) || 0,
+        invest: Number(r[5]) || 0, principal: Number(r[6]) || 0,
+        marketPnl: Number(r[7]) || 0, monthlyRate: Number(r[8]) || 0,
+        isa: Number(r[10]) || 0, overseas: Number(r[11]) || 0,
+        domestic: Number(r[12]) || 0, pension: Number(r[13]) || 0,
+        etcinv: Number(r[14]) || 0, memo: String(r[15] || "")
+      };
+      try { o.holdings = JSON.parse(r[16] || "[]"); } catch (e) { o.holdings = []; }
+      map[ym] = o;
+    });
   }
-  s.getRange(2, 1, s.getLastRow() - 1, INVEST_HEAD.length).getValues().forEach(function (r) {
-    var ym = String(r[0] || "").slice(0, 7);
-    if (!/^\d{4}-\d{2}$/.test(ym)) return;
-    var o = {
-      at: toISO(r[1]), contrib: Number(r[2]) || 0, withdrawal: Number(r[3]) || 0,
-      invest: Number(r[5]) || 0, principal: Number(r[6]) || 0,
-      marketPnl: Number(r[7]) || 0, monthlyRate: Number(r[8]) || 0,
-      isa: Number(r[10]) || 0, overseas: Number(r[11]) || 0,
-      domestic: Number(r[12]) || 0, pension: Number(r[13]) || 0,
-      etcinv: Number(r[14]) || 0, memo: String(r[15] || "")
-    };
-    try { o.holdings = JSON.parse(r[16] || "[]"); } catch (e) { o.holdings = []; }
-    map[ym] = o;
+
+  /* 새 장부에 이미 있는 월은 그대로 두고, 빠진 월만 원본/옛 스냅샷에서 보충한다.
+     따라서 9월이 먼저 저장돼 있어도 원본의 8월이 누락되지 않는다. */
+  var missing = {}, sources = [readOriginalInvestMonths(), readLegacySnaps()];
+  sources.forEach(function (source) {
+    Object.keys(source).forEach(function (ym) {
+      if (!map[ym]) map[ym] = missing[ym] = source[ym];
+    });
   });
+  if (Object.keys(missing).length) writeInvestMonths(missing);
   return map;
 }
 
@@ -469,7 +544,7 @@ function writeInvestMonths(map) {
   var rowByMonth = {};
   if (s.getLastRow() > 1) {
     s.getRange(2, 1, s.getLastRow() - 1, 1).getValues().forEach(function (r, i) {
-      var ym = String(r[0] || "").slice(0, 7);
+      var ym = monthKey(r[0]);
       if (/^\d{4}-\d{2}$/.test(ym)) rowByMonth[ym] = i + 2;
     });
   }
@@ -503,6 +578,6 @@ function deleteInvestMonth(ym) {
   if (!s || s.getLastRow() < 2) return;
   var vals = s.getRange(2, 1, s.getLastRow() - 1, 1).getValues();
   for (var i = vals.length - 1; i >= 0; i--) {
-    if (String(vals[i][0] || "").slice(0, 7) === ym) s.deleteRow(i + 2);
+    if (monthKey(vals[i][0]) === ym) s.deleteRow(i + 2);
   }
 }
