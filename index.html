@@ -280,6 +280,10 @@
         background: var(--warn);
         animation: pulse 1s ease-in-out infinite;
       }
+      .syncchip[data-s="pending"]::before,
+      .syncchip[data-s="offline"]::before {
+        background: var(--warn);
+      }
       .syncchip[data-s="err"] {
         color: var(--crit);
         border-color: color-mix(in srgb, var(--crit) 40%, transparent);
@@ -2226,21 +2230,43 @@
       }
       function saveLocal() {
         try {
-          localStorage.setItem(LSKEY, JSON.stringify(S));
+          /* 전송 중인 항목도 응답을 확인하기 전까지 보관한다. */
+          localStorage.setItem(LSKEY, JSON.stringify({
+            ...S,
+            _pendingSync: [...new Set([...dirty, ...sheetInFlight])],
+          }));
         } catch (e) {}
       }
 
       const dirty = new Set();
+      const sheetInFlight = new Set();
       let saveTimer = null;
+      let retryDelay = 3000;
+      function scheduleSave(delay = 1000) {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(flush, delay);
+      }
+      function retrySync() {
+        if (!SYNC.url) return;
+        if (navigator.onLine === false) {
+          setSync("offline");
+          return;
+        }
+        scheduleSave(retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 30000);
+      }
       function persist(...keys) {
         keys.forEach((k) => dirty.add(k));
         S.rev = (S.rev || 0) + 1;
         saveLocal();
-        clearTimeout(saveTimer);
-        saveTimer = setTimeout(flush, SYNC.url ? 1400 : 500);
+        if (SYNC.url && !SYNC.busy && !SYNC.bootBusy)
+          setSync(navigator.onLine === false ? "offline" : "pending");
+        scheduleSave(SYNC.url ? 1000 : 500);
       }
       async function flush() {
-        return SYNC.url ? pushSheet() : pushDB();
+        return SYNC.url
+          ? (SYNC.ready ? pushSheet() : syncBoot())
+          : pushDB();
       }
       async function pushDB() {
         if (!DB) return;
@@ -2322,6 +2348,7 @@
         state: "off",
         at: null,
         busy: false,
+        ready: false,
         ver: null,
         sheetName: "",
         stale: false,
@@ -2364,23 +2391,40 @@
         el.innerHTML =
           {
             busy: "<span>동기화 중</span>",
-            ok: "<span>시트 " + hhmm + "</span>",
-            err: "<span>동기화 실패</span>",
+            pending: "<span>업로드 대기</span>",
+            offline: "<span>오프라인 · 기기 저장</span>",
+            ok: "<span>시트 동기화 " + hhmm + "</span>",
+            err: "<span>실패 · 재시도 대기</span>",
           }[state] || "<span>시트</span>";
-        el.title = state === "err" ? "눌러서 설정 확인" : "구글 시트에 저장됨";
+        el.title = {
+          busy: "구글 시트와 동기화하고 있어요",
+          pending: "변경사항을 기기에 저장했어요. 곧 자동으로 업로드해요",
+          offline: "변경사항은 기기에 보관되며 인터넷 연결 시 자동으로 업로드해요",
+          err: "동기화를 다시 시도해요. 눌러서 연결 설정 확인",
+          ok: "구글 시트와 동기화됨 · " + hhmm,
+        }[state] || "구글 시트 동기화";
+        el.setAttribute("aria-label", el.title);
       }
 
       async function gasCall(payload, url, token) {
         const u = url || SYNC.url,
           t = token !== undefined ? token : SYNC.token;
-        const res = await fetch(u, {
-          method: "POST",
-          /* text/plain 이어야 preflight(OPTIONS)가 안 생겨서 Apps Script가 받아준다 */
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(Object.assign({}, payload, { token: t })),
-          redirect: "follow",
-        });
-        const raw = await res.text();
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 45000);
+        let raw;
+        try {
+          const res = await fetch(u, {
+            method: "POST",
+            /* text/plain 이어야 preflight(OPTIONS)가 안 생겨서 Apps Script가 받아준다 */
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(Object.assign({}, payload, { token: t })),
+            redirect: "follow",
+            signal: controller.signal,
+          });
+          raw = await res.text();
+        } finally {
+          clearTimeout(timeout);
+        }
         if (/^\s*<(!doctype|html)/i.test(raw))
           throw new Error(
             "배포 설정에서 '액세스 권한이 있는 사용자'를 '모든 사용자'로 바꿔주세요",
@@ -2535,11 +2579,25 @@
       }
 
       async function pushSheet(all) {
-        if (!SYNC.url || SYNC.busy) return;
-        const keys = all
-          ? ["month:*", "settings", "assets"]
-          : Array.from(dirty);
-        if (!keys.length) return;
+        if (!SYNC.url) return false;
+        /* 수동 전체 업로드도 아직 전송하지 않은 월 기록을 큐에서 지우지 않는다. */
+        if (all) {
+          ["month:*", "settings", "assets"].forEach((k) => dirty.add(k));
+          saveLocal();
+        }
+        if (SYNC.busy || SYNC.bootBusy) return false;
+        if (!SYNC.ready) {
+          scheduleSave(0);
+          return false;
+        }
+        if (navigator.onLine === false) {
+          setSync("offline");
+          return false;
+        }
+        const keys = Array.from(dirty);
+        if (!keys.length) return true;
+        clearTimeout(saveTimer);
+        keys.forEach((k) => sheetInFlight.add(k));
         dirty.clear();
         SYNC.busy = true;
         setSync("busy");
@@ -2549,29 +2607,33 @@
             rev: S.rev || 1,
             parts: buildParts(keys),
           });
-          S.rev = j.rev || S.rev;
+          /* 응답을 기다리는 동안 사용자가 추가한 변경 번호를 되돌리지 않는다. */
+          S.rev = Math.max(S.rev || 0, j.rev || 0);
+          sheetInFlight.clear();
           saveLocal();
-          setSync("ok", Date.now());
+          retryDelay = 3000;
+          setSync(dirty.size ? "pending" : "ok", Date.now());
+          return !dirty.size;
         } catch (e) {
-          keys.forEach((k) => dirty.add(k)); // 다음 저장 때 다시 시도
-          setSync("err");
+          keys.forEach((k) => dirty.add(k));
+          sheetInFlight.clear();
+          saveLocal();
+          setSync(navigator.onLine === false ? "offline" : "err");
           console.warn("시트 저장 실패:", e.message);
+          retrySync();
+          return false;
         } finally {
           SYNC.busy = false;
+          /* 기존 디바운스가 전송 도중 실행됐더라도 다음 묶음을 반드시 보낸다. */
+          if (dirty.size && SYNC.state === "pending") scheduleSave(0);
         }
       }
 
-      /* 완전히 빈 시트를 처음 연결할 때만 월별 기록 전체를 심는다.
-         이후 일반 전체 업로드/배포는 월별 투자기록을 건드리지 않는다. */
-      async function seedInvestmentMonths() {
-        if (!SYNC.url || !Object.keys(S.investMonths || {}).length) return;
-        const j = await gasCall({
-          action: "save",
-          rev: S.rev || 1,
-          parts: { investMonths: S.investMonths },
-        });
-        S.rev = j.rev || S.rev;
-        saveLocal();
+      function pushMessage(ok) {
+        return ok ? "시트에 올렸어요"
+          : SYNC.state === "offline" ? "기기에 저장했어요. 연결되면 자동으로 올려요"
+          : SYNC.state === "err" ? "업로드하지 못했어요. 자동으로 다시 시도해요"
+          : "업로드 대기 중이에요. 자동으로 이어서 올려요";
       }
 
       function adoptRemote(d, rev) {
@@ -2624,7 +2686,12 @@
       }
 
       async function syncBoot() {
-        if (!SYNC.url || SYNC.bootBusy) return;
+        if (!SYNC.url || SYNC.bootBusy || SYNC.busy) return false;
+        if (navigator.onLine === false) {
+          setSync("offline");
+          return false;
+        }
+        clearTimeout(saveTimer);
         SYNC.bootBusy = true;
         setSync("busy");
         try {
@@ -2639,21 +2706,31 @@
             localRev = S.rev || 0;
           /* 로컬에 아직 못 올린 변경이 있으면 같은 달의 로컬 값을 지키고,
              시트에만 있는 과거 달만 보충한다. */
-          let changed = mergeRemoteInvestMonths(j.data, localRev > serverRev);
+          const hasPending = dirty.size > 0;
+          let changed = mergeRemoteInvestMonths(j.data, hasPending || localRev > serverRev);
           /* 시트를 직접 편집하면 REV가 오르지 않는다. 같을 때도 다시 채택해야
              앱 시작 시 수동으로 고친 시트 내용이 즉시 반영된다. */
-          if (serverRev >= localRev) {
+          if (!hasPending && serverRev >= localRev) {
             changed = adoptRemote(j.data, serverRev) || changed;
-          } else if (localRev > serverRev) {
-            await pushSheet(true);
+          } else if (!hasPending && localRev > serverRev) {
+            /* 이전 버전에서 미전송 목록 없이 남은 변경도 이어 올린다. */
+            ["month:*", "settings", "assets"].forEach((k) => dirty.add(k));
           }
+          S.rev = Math.max(S.rev || 0, serverRev);
+          saveLocal();
+          SYNC.ready = true;
+          retryDelay = 3000;
           if (changed) render();
-          setSync(SYNC.stale ? "err" : "ok", Date.now());
+          setSync(dirty.size ? "pending" : SYNC.stale ? "err" : "ok", Date.now());
+          return true;
         } catch (e) {
           setSync("err");
           console.warn("시트 연결 실패:", e.message);
+          retrySync();
+          return false;
         } finally {
           SYNC.bootBusy = false;
+          if (SYNC.ready && dirty.size && SYNC.state === "pending") scheduleSave(0);
         }
       }
 
@@ -3813,6 +3890,7 @@
 
     <div class="setblk">
     <h2 class="sec">동기화</h2>
+    ${SYNC.url ? '<div class="note" style="margin-bottom:10px">자동 업로드가 켜져 있어요. 변경 후 약 1초 뒤 시트에 전송하며, 실패한 변경은 보관했다가 다시 시도해요.</div>' : ""}
     <div class="card rows">
       ${
         SYNC.url
@@ -3824,8 +3902,8 @@
           <span class="mm">시트에 실제로 뭐가 들어갔는지 확인</span></span><span class="mm">›</span></button>
         <button class="row" id="syncPull"><span class="grow"><span class="nm">시트에서 내려받기</span>
           <span class="mm">시트 내용으로 앱을 덮어써요</span></span><span class="mm">›</span></button>
-        <button class="row" id="syncPush"><span class="grow"><span class="nm">시트로 올리기</span>
-          <span class="mm">거래·자산을 올려요. 월별 투자기록은 덮어쓰지 않아요</span></span><span class="mm">›</span></button>
+        <button class="row" id="syncPush"><span class="grow"><span class="nm">지금 시트로 올리기</span>
+          <span class="mm">자동 업로드를 기다리지 않고 전송해요. 수정한 월 기록도 함께 올려요</span></span><span class="mm">›</span></button>
         <button class="row" id="syncOff" style="color:var(--crit)"><span class="grow">연결 해제</span></button>
       `
           : `
@@ -5250,17 +5328,28 @@
           return;
         }
         if (t.id === "syncPush") {
-          dirty.clear();
-          pushSheet(true).then(() => {
+          pushSheet(true).then((ok) => {
             render();
-            toast("시트에 올렸어요");
+            toast(pushMessage(ok));
           });
           return;
         }
         if (t.id === "syncPull") {
+          if (SYNC.busy || SYNC.bootBusy || dirty.size) {
+            toast("변경사항을 동기화한 뒤 다시 내려받아 주세요");
+            scheduleSave(0);
+            return;
+          }
+          SYNC.bootBusy = true;
+          const localRev = S.rev;
           setSync("busy");
           gasCall({ action: "load" })
             .then((j) => {
+              if (dirty.size || S.rev !== localRev) {
+                setSync("pending");
+                toast("방금 수정한 내용을 먼저 자동으로 올릴게요");
+                return;
+              }
               if (adoptRemote(j.data, j.rev)) {
                 render();
                 toast("시트에서 내려받았어요");
@@ -5273,12 +5362,22 @@
             .catch((e) => {
               setSync("err");
               toast(e.message);
+            })
+            .finally(() => {
+              SYNC.bootBusy = false;
+              if (dirty.size) scheduleSave(0);
             });
           return;
         }
         if (t.id === "syncOff") {
+          if (SYNC.busy || SYNC.bootBusy) {
+            toast("진행 중인 동기화가 끝난 뒤 연결을 해제해 주세요");
+            return;
+          }
+          clearTimeout(saveTimer);
           SYNC.url = "";
           SYNC.token = "";
+          SYNC.ready = false;
           saveSyncCfg();
           setSync("off");
           render();
@@ -5653,12 +5752,10 @@
               if (pb)
                 pb.onclick = async () => {
                   pb.textContent = "올리는 중…";
-                  dirty.clear();
-                  await pushSheet(true);
-                  await seedInvestmentMonths();
+                  const ok = await pushSheet(true);
                   closeSheet();
                   render();
-                  toast("시트로 올렸어요");
+                  toast(pushMessage(ok));
                 };
             } catch (e) {
               el.innerHTML = `<b style="color:var(--crit)">${esc(e.message)}</b><br><br>
@@ -5713,20 +5810,24 @@
                 const remoteInvestEmpty = !Object.keys(
                   remote.investMonths || remote.snaps || {},
                 ).length;
-                SYNC.url = url;
-                SYNC.token = token;
-                saveSyncCfg();
+                const useConnection = () => {
+                  SYNC.url = url;
+                  SYNC.token = token;
+                  SYNC.ready = true;
+                  saveSyncCfg();
+                };
                 if (!hasRemote) {
+                  useConnection();
                   msg(
                     "시트 <b>" +
                       esc(ping.name) +
                       "</b> 확인. 비어 있어서 지금 내용을 올릴게요…",
                   );
-                  dirty.clear();
-                  await pushSheet(true);
+                  Object.keys(S.investMonths || {}).forEach((ym) => dirty.add("investMonth:" + ym));
+                  const ok = await pushSheet(true);
                   closeSheet();
                   render();
-                  toast("시트에 올렸어요");
+                  toast(pushMessage(ok));
                 } else {
                   msg(`시트 <b>${esc(ping.name)}</b>에 이미 데이터가 있어요. 어느 쪽을 남길까요?
               <div class="hstack" style="margin-top:12px">
@@ -5734,6 +5835,9 @@
                 <button class="btn sm ghost" id="sy_push">앱 내용으로 덮어쓰기</button>
               </div>`);
                   $("#sy_pull").onclick = () => {
+                    clearTimeout(saveTimer);
+                    dirty.clear();
+                    useConnection();
                     adoptRemote(remote, load.rev);
                     setSync("ok", Date.now());
                     closeSheet();
@@ -5741,12 +5845,13 @@
                     toast("시트에서 내려받았어요");
                   };
                   $("#sy_push").onclick = async () => {
-                    dirty.clear();
-                    await pushSheet(true);
-                    if (remoteInvestEmpty) await seedInvestmentMonths();
+                    useConnection();
+                    if (remoteInvestEmpty)
+                      Object.keys(S.investMonths || {}).forEach((ym) => dirty.add("investMonth:" + ym));
+                    const ok = await pushSheet(true);
                     closeSheet();
                     render();
-                    toast("시트에 올렸어요");
+                    toast(pushMessage(ok));
                   };
                 }
               } catch (e) {
@@ -5822,6 +5927,9 @@
       /* ============================== 부트 ============================== */
       applyTheme();
       S = loadLocal();
+      if (Array.isArray(S._pendingSync))
+        S._pendingSync.filter((k) => typeof k === "string").forEach((k) => dirty.add(k));
+      delete S._pendingSync;
       if (!S.settings.quick) S.settings.quick = SEED_SETTINGS.quick;
       if (!S.investMonths)
         S.investMonths = structuredClone(S.snaps || {});
@@ -5833,6 +5941,23 @@
       setSync(SYNC.url ? "busy" : "off");
       if (SYNC.url) syncBoot();
       else if (window.claude && window.claude.use) connectDB();
+      const resumeSync = () => {
+        if (!SYNC.url) return;
+        retryDelay = 3000;
+        if (!SYNC.ready || dirty.size) scheduleSave(0);
+      };
+      window.addEventListener("online", resumeSync);
+      window.addEventListener("offline", () => {
+        if (SYNC.url && (dirty.size || sheetInFlight.size || !SYNC.ready)) setSync("offline");
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") resumeSync();
+        else if (SYNC.url && dirty.size) {
+          saveLocal();
+          flush();
+        }
+      });
+      window.addEventListener("pagehide", saveLocal);
       if ("serviceWorker" in navigator && location.protocol === "https:") {
         window.addEventListener("load", () =>
           navigator.serviceWorker.register("./sw.js").catch(() => {}),
