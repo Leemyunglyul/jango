@@ -1684,6 +1684,14 @@
         font: 10px "IBM Plex Mono", monospace; color: var(--ink2); background: var(--surface2);
       }
       .quote-badge.failed, .quote-error { color: var(--crit); }
+      .growth-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+      .growth-grid .tile .v { margin: 9px 0; }
+      .growth-grid .tile .d { font-size: 11px; }
+      @media (max-width: 600px) {
+        .growth-grid { grid-template-columns: 1fr; }
+        .growth-grid .tile { padding: 16px 18px; }
+        .growth-grid .tile .v { font-size: 25px; }
+      }
       .quote-error { background: color-mix(in srgb, var(--crit) 7%, var(--surface)); padding: 8px; border-radius: 8px; }
       .tiles { gap: 10px; border: 0; background: none; overflow: visible; }
       .tile { border: 1px solid var(--line-soft); border-radius: 17px; background: var(--surface); padding: 17px 15px; min-width: 0; }
@@ -2794,6 +2802,7 @@
           budgets: S.settings.budgets,
           recurring: S.settings.recurring,
           quick: S.settings.quick,
+          wealthBaseline: S.settings.wealthBaseline || null,
           rec: S.rec || {},
         };
       }
@@ -2889,6 +2898,7 @@
           budgets: d.settings.budgets || {},
           recurring: d.settings.recurring || [],
           quick: d.settings.quick || SEED_SETTINGS.quick,
+          wealthBaseline: d.settings.wealthBaseline || null,
         };
         S.rec = d.settings.rec || {};
         S.months = d.months || {};
@@ -3158,6 +3168,62 @@
           total,
           totalExReal,
         };
+      }
+
+      function netWorthGrowth(current, baseline) {
+        if (baseline == null || baseline === "" || !Number.isFinite(Number(baseline)))
+          return { delta: null, rate: null };
+        const base = Number(baseline);
+        return { delta: current - base, rate: base > 0 ? (current - base) / base : null };
+      }
+      function latestInvestmentPerformance() {
+        const months = Object.keys(S.investMonths || {})
+          .filter((ym) => /^\d{4}-\d{2}$/.test(ym) && ym <= ymOf(todayISO())).sort();
+        if (months.length < 2) return null;
+        const month = months[months.length - 1], previous = months[months.length - 2];
+        const a = S.investMonths[previous], b = S.investMonths[month];
+        const nextMonth = new Date(Number(previous.slice(0, 4)), Number(previous.slice(5)), 1);
+        if (`${nextMonth.getFullYear()}-${pad2(nextMonth.getMonth() + 1)}` !== month || a.invest == null || b.invest == null) return null;
+        const inflow = Number(b.contrib) || 0, outflow = Number(b.withdrawal) || 0;
+        const gain = Number(b.invest) - Number(a.invest) - inflow + outflow;
+        const base = Number(a.invest) + (inflow - outflow) / 2;
+        if (!Number.isFinite(gain) || !Number.isFinite(base) || base <= 0) return null;
+        return { month, gain, rate: gain / base };
+      }
+      function wealthGrowthHtml(t) {
+        const baseline = S.settings.wealthBaseline;
+        const total = netWorthGrowth(t.total, baseline?.total);
+        const financial = netWorthGrowth(t.totalExReal, baseline?.totalExReal);
+        const investment = latestInvestmentPerformance();
+        const percent = (rate) => rate == null ? "—" : `${rate > 0 ? "+" : ""}${(rate * 100).toFixed(2)}%`;
+        const difference = (value) => value == null ? "기준 금액을 먼저 저장해 주세요" : `${value > 0 ? "+" : ""}${won(value)}원 변화`;
+        const card = (title, data, note) => `<div class="tile"><div class="k">${title}</div><div class="v" style="color:${data.rate == null ? "var(--ink3)" : data.rate >= 0 ? "var(--accent)" : "var(--crit)"}">${percent(data.rate)}</div><div class="d">${difference(data.delta)}</div><div class="note">${note}</div></div>`;
+        return `<div class="hstack" style="margin-top:24px;justify-content:space-between"><h2 class="sec" style="margin:0">자산은 얼마나 늘었을까요?</h2><button class="btn sm ghost" id="wealthBaseline">${baseline ? "기준 수정" : "증가율 기준 설정"}</button></div>
+          <div class="note" style="margin-top:8px">${baseline ? `${esc(baseline.at)} 기준 → 현재 보유 자산` : "부동산 현재가치와 대출까지 입력한 뒤, 비교할 시작 금액을 저장하세요."}</div>
+          <div class="growth-grid">
+            ${card("총순자산 증가율", total, "부동산 현재가치 포함 · 부채 차감")}
+            ${card("부동산 제외 순자산 증가율", financial, "부동산 가치와 해당 담보대출 함께 제외")}
+            <div class="tile"><div class="k">금융투자 월수익률 · 추정</div><div class="v" style="color:${investment ? investment.rate >= 0 ? "var(--accent)" : "var(--crit)" : "var(--ink3)"}">${percent(investment?.rate)}</div><div class="d">${investment ? `${ymLabel(investment.month)} · 운용손익 ${investment.gain > 0 ? "+" : ""}${won(investment.gain)}원` : "연속된 두 달의 투자 기록이 필요해요"}</div><div class="note">부동산 제외 · 납입·인출을 보정한 간이 수익률</div></div>
+          </div><div class="note" style="margin-top:10px">순자산 증가에는 저축과 자산 가치 변동이 함께 반영돼요. 기준 금액이 0원 이하면 증가액만 표시합니다. 금융투자 수익률은 월중 입출금이 중간에 있었다고 가정합니다.</div>`;
+      }
+      function openWealthBaseline() {
+        const t = assetTotals(), saved = S.settings.wealthBaseline;
+        openSheet(`<h3>자산 증가율 기준</h3><div class="note" style="margin-bottom:16px">현재 금액으로 시작하거나 과거 기준일의 금액을 입력하세요. 부동산을 처음 등록하는 경우, 등록을 마친 후 기준을 잡아 주세요.</div>
+          <div class="field"><label for="wb_date">기준일</label><input id="wb_date" type="date" max="${todayISO()}" value="${esc(saved?.at || todayISO())}"></div>
+          <div class="field"><label for="wb_total">부동산 포함 총순자산 (원)</label><input id="wb_total" type="number" value="${saved?.total ?? t.total}"></div>
+          <div class="field"><label for="wb_financial">부동산 제외 순자산 (원)</label><input id="wb_financial" type="number" value="${saved?.totalExReal ?? t.totalExReal}"><div class="note">부동산 현재가치와 해당 담보대출을 모두 제외한 금액입니다. 담보대출은 부동산 계좌의 대출 잔액에 입력하고 별도 부채 계좌에 중복 입력하지 마세요.</div></div>
+          <button class="btn" id="wb_save">기준 저장</button>`, () => {
+          $("#wb_save").onclick = () => {
+            const at = $("#wb_date").value;
+            const rawTotal = $("#wb_total").value, rawFinancial = $("#wb_financial").value;
+            const total = Number(rawTotal), totalExReal = Number(rawFinancial);
+            if (!at || at > todayISO() || !rawTotal || !rawFinancial || !Number.isFinite(total) || !Number.isFinite(totalExReal))
+              return toast("기준일과 두 금액을 확인해 주세요");
+            S.settings.wealthBaseline = { at, total, totalExReal };
+            persist("settings");
+            closeSheet(); render(); toast("자산 증가율 기준을 저장했어요");
+          };
+        });
       }
 
       /* 모든 계좌의 종목을 하나로 모아 비중 계산 */
@@ -3707,7 +3773,7 @@
 
         return `<section>
     <div class="hero">
-      <div class="k">순자산</div>
+      <div class="k">총순자산 · 부동산 포함</div>
       <div class="v">${won(total)}<span style="font-family:'IBM Plex Sans KR';font-size:18px;font-weight:500;color:var(--ink2)"> 원</span></div>
       <div class="d">부동산 제외 ${won(t.totalExReal)} · 투자 월별 추이는 투자 탭에서 관리해요</div>
       <div style="margin-top:14px" class="splitbar">
@@ -3728,6 +3794,7 @@
         <div class="d">${g.housing ? "청약 " + shortWon(g.housing) : "&nbsp;"}</div></div>
     </div>
 
+    ${wealthGrowthHtml(t)}
     <div class="hstack" style="margin-top:16px">
       <button class="btn sm ghost" id="addAsset">＋ 계좌·자산 추가</button>
       ${SYNC.url ? `<button class="btn sm ghost" id="quoteRefresh">↻ 시세 새로고침</button>` : ""}
@@ -5512,6 +5579,10 @@
         /* 자산 */
         if (d.asset) {
           openAssetSheet(d.asset, d.hold !== undefined ? Number(d.hold) : null);
+          return;
+        }
+        if (t.id === "wealthBaseline") {
+          openWealthBaseline();
           return;
         }
         if (t.id === "addAsset") {

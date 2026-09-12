@@ -84,6 +84,16 @@ test('every inline script parses', () => {
     new vm.Script(script);
 });
 
+test('net worth baseline is included in sheet settings and restored on download', async () => {
+  const h = harness();
+  h.run(`S.settings.wealthBaseline = { at: '2026-09-01', total: 190000000, totalExReal: 30000000 }; persist('settings');`);
+  await h.tick(1000);
+  assert.equal(h.calls[0].parts.settings.wealthBaseline.total, 190000000);
+  h.ctx.remoteSettings = h.calls[0].parts.settings;
+  h.run(`S.settings.wealthBaseline = null; adoptRemote({ settings: remoteSettings }, 2);`);
+  assert.equal(h.run('S.settings.wealthBaseline.totalExReal'), 30000000);
+});
+
 test('successive edits persist immediately and upload as one batch after one second', async () => {
   const h = harness();
   h.run(`S.months['2026-09'] = { items: [{ amount: 100 }] }; persist('month:2026-09');
