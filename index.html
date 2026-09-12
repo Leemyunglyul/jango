@@ -51,7 +51,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
       :root {
-        --ground: #f6f5f0;
+        --ground: #f5f4ee;
         --surface: #fcfcfb;
         --surface2: #f1f0e9;
         --raise: #ffffff;
@@ -59,8 +59,8 @@
         --line-soft: #edebe2;
         --ink: #1c2320;
         --ink2: #5e6862;
-        --ink3: #8c948e;
-        --accent: #0f7b5e;
+        --ink3: #737e75;
+        --accent: #18745b;
         --expense: #c75c0a;
         --invest: #2e5fcb;
         --good: #0f7b5e;
@@ -1634,6 +1634,200 @@
           bottom: 28px;
         }
       }
+      /* ── 잔고와 흐름: 따뜻한 종이 위에 정리하는 금융 일상 ── */
+      :root {
+        --forest: #163e33;
+        --mint: #d9edc2;
+        --soft-accent: color-mix(in srgb, var(--accent) 9%, var(--surface));
+      }
+      body { letter-spacing: -.025em; }
+      .topbar {
+        background: color-mix(in srgb, var(--ground) 94%, transparent);
+        backdrop-filter: blur(18px);
+      }
+      .brand { font-size: 19px; letter-spacing: -.05em; }
+      .brand .dot {
+        width: 19px; height: 23px; margin-right: 9px;
+        border-radius: 12px 4px 12px 4px; vertical-align: -4px;
+        background: var(--accent);
+        box-shadow: inset -5px -5px 0 #ffffff24;
+      }
+      .month-nav { padding: 3px; border-radius: 13px; }
+      .month-nav button { min-width: 36px; height: 36px; font-size: 20px; }
+      .month-nav .m { font-size: 13px; padding: 0 10px; }
+      .iconbtn { width: 38px; height: 38px; border-radius: 12px; }
+      .syncchip { min-height: 34px; font-size: 11px; }
+      .pagehead { padding: 30px 0 5px; }
+      .eyebrow {
+        display: block; font-family: "IBM Plex Mono", monospace;
+        font-size: 10px; font-weight: 500; letter-spacing: .18em;
+        color: var(--accent); margin-bottom: 10px;
+      }
+      .pagehead h1 {
+        font-family: "Hahmlet", serif; font-size: 30px;
+        letter-spacing: -.065em; font-weight: 500; line-height: 1.4; margin: 0;
+      }
+      .pagehead p { margin: 8px 0 0; color: var(--ink2); font-size: 13px; }
+      h2.sec { letter-spacing: -.02em; font-size: 13px; color: var(--ink2); margin-bottom: 12px; }
+      .navintro, .navfoot { display: none; }
+      .card { border-radius: 19px; border-color: var(--line-soft); box-shadow: 0 3px 14px #142f2005; }
+      .row { min-height: 58px; padding: 15px 18px; gap: 10px; }
+      .row .nm { font-weight: 500; }
+      .row .grow, .hold .grow { min-width: 0; }
+      .row .amt, .hold .amt { flex-shrink: 0; }
+      .grouphead { padding: 17px 18px; background: var(--soft-accent); border-radius: 19px 19px 0 0; }
+      .hold { padding: 13px 18px 13px 28px; }
+      .hold .grow > span:first-child { display: block; line-height: 1.45; }
+      .hold .mm { display: block; margin-top: 4px; }
+      .quote-badge {
+        display: inline-block; margin-top: 5px; padding: 2px 6px; border-radius: 5px;
+        font: 10px "IBM Plex Mono", monospace; color: var(--ink2); background: var(--surface2);
+      }
+      .quote-badge.failed, .quote-error { color: var(--crit); }
+      .quote-error { background: color-mix(in srgb, var(--crit) 7%, var(--surface)); padding: 8px; border-radius: 8px; }
+      .tiles { gap: 10px; border: 0; background: none; overflow: visible; }
+      .tile { border: 1px solid var(--line-soft); border-radius: 17px; background: var(--surface); padding: 17px 15px; min-width: 0; }
+      .tile + .tile { border-left: 1px solid var(--line-soft); }
+      .tile .v { font-size: clamp(17px, 1.9vw, 25px); letter-spacing: -.045em; overflow-wrap: anywhere; }
+      .tile .k { font-size: 12px; color: var(--ink2); }
+      .tile .d { line-height: 1.6; margin-top: 7px; }
+      .hero { padding: 25px; border-radius: 23px; border: 1px solid var(--line); background: var(--surface); }
+      .hero .v { letter-spacing: -.06em; overflow-wrap: anywhere; }
+      .hero .d { line-height: 1.7; }
+      .cols-rec > .colA {
+        background: var(--surface); border: 1px solid var(--line-soft);
+        border-radius: 23px; padding: 21px; box-shadow: 0 6px 30px #14312404;
+      }
+      .amount-stage { padding: 0 0 18px; }
+      .kindtoggle { padding: 4px; border: 0; border-radius: 12px; }
+      .kindtoggle button { padding: 8px 21px; border-radius: 9px; min-height: 38px; }
+      .kindtoggle button[aria-pressed="true"] { color: var(--accent); }
+      .bigamt { margin: 24px 0 9px; padding-bottom: 13px; }
+      .amtinput { font-family: "IBM Plex Sans KR", sans-serif; font-size: 54px; font-weight: 500; max-width: calc(100% - 34px); }
+      .datepick input { min-height: 32px; }
+      .quicks { gap: 6px; padding: 1px 0 8px; }
+      .quick { background: var(--surface2); border-color: transparent; border-radius: 9px; padding: 9px 10px; font-size: 11px; }
+      .quick b { font-size: 10px; color: var(--ink2); }
+      .catgrid { gap: 7px; }
+      .cat { border-color: var(--line-soft); border-radius: 12px; min-height: 60px; font-size: 12px; background: var(--surface); }
+      .cat[aria-pressed="true"] { background: var(--soft-accent); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+      .cat .dot { width: 6px; height: 6px; }
+      .banner { border-radius: 12px; padding: 13px; border: 1px solid color-mix(in srgb, var(--warn) 20%, transparent); }
+      .banner .t { font-size: 12px; }
+      .banner .s { font-size: 11px; line-height: 1.65; }
+      .banner button { border-radius: 8px; min-height: 38px; flex-shrink: 0; font-size: 11px; }
+      .btn { border-radius: 12px; min-height: 48px; font-weight: 500; }
+      .btn.sm { min-height: 38px; border-radius: 10px; }
+      .btn:disabled { opacity: .5; }
+      .btn:not(.ghost):not(.danger):not(:disabled) { box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 14%, transparent); }
+      .memoinput { min-height: 47px; border-radius: 11px; background: var(--surface2); border-color: transparent; font-size: 12px; }
+      .switchline { padding: 9px 0; }
+      .switchline .hint { font-size: 10.5px; line-height: 1.6; display: inline-block; }
+      .balance-card { background: var(--forest); color: #f0f6e9; border-radius: 23px; padding: 25px; position: relative; overflow: hidden; }
+      .balance-card::after {
+        content: ""; position: absolute; right: -34px; top: -55px;
+        width: 160px; height: 160px; border-radius: 50%; border: 30px solid #d9edc20b; pointer-events: none;
+      }
+      .balance-card .balance-label { color: #bdcfc4; font-size: 12px; }
+      .balance-value { margin: 12px 0 5px; font: 500 34px "IBM Plex Sans KR", sans-serif; letter-spacing: -.05em; }
+      .balance-value small { font-size: 15px; font-weight: 400; margin-left: 5px; }
+      .balance-note { font-size: 11px; color: #bdcfc4; }
+      .balance-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; border-top: 1px solid #ffffff20; margin-top: 24px; padding-top: 18px; }
+      .balance-foot span { display: block; font-size: 11px; color: #bdcfc4; margin-bottom: 5px; }
+      .balance-foot strong { font: 500 17px "IBM Plex Sans KR", sans-serif; color: var(--mint); }
+      .balance-foot > div:last-child strong { color: #f4d4b2; }
+      .seg { border-radius: 12px; margin-bottom: 16px; }
+      .seg button { border-radius: 9px; padding: 9px 26px; }
+      .sheet { border-radius: 24px 24px 0 0; }
+      .sheet h3 { letter-spacing: -.04em; }
+      .sheet-close { position: sticky; top: 0; float: right; z-index: 2; width: 34px; height: 34px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--line); color: var(--ink2); font-size: 24px; line-height: 1; }
+      .field input, .field select, .field textarea { border-radius: 10px; min-height: 44px; }
+      .hgrid input, .hquote input { min-height: 40px; border-radius: 8px; }
+      .hrow { border-radius: 13px; }
+      .hquote-meta { line-height: 1.7; }
+      .toast { max-width: calc(100vw - 32px); width: max-content; border-radius: 13px; text-align: center; }
+      @media (hover: hover) {
+        .cat:hover, .row:hover, .hold:hover { background: var(--soft-accent); }
+        .btn:hover:not(:disabled) { filter: brightness(1.06); }
+        .quick:hover { border-color: var(--accent); }
+      }
+      @media (min-width: 920px) {
+        .topbar-in { max-width: 1440px; padding: 16px 30px; }
+        .shell { max-width: 1440px; grid-template-columns: 204px minmax(0, 1fr); gap: 32px; padding: 0 30px; }
+        nav.tabs {
+          top: 94px; margin-top: 22px; background: var(--forest); border-radius: 24px;
+          padding: 25px 14px 20px; min-height: calc(100dvh - 122px); display: flex; flex-direction: column;
+        }
+        .navintro { display: block; padding: 3px 13px 37px; color: #f0f6e9; }
+        .navintro span { display: block; font: 9px "IBM Plex Mono", monospace; letter-spacing: .19em; color: #b4c5b7; margin-bottom: 19px; }
+        .navintro strong { font: 500 23px/1.65 "Hahmlet", serif; letter-spacing: -.06em; }
+        .tabs-in { width: 100%; gap: 8px; }
+        .tabs button { min-height: 48px; color: #bdd0c2; border-radius: 12px; padding: 12px 16px; }
+        .tabs button[aria-current="page"] { background: var(--mint); color: #183e31; }
+        .tabs button[aria-current="page"] svg { color: #183e31; }
+        .tabs button[aria-current="page"]::before { display: none; }
+        .tabs button:hover:not([aria-current="page"]) { background: #ffffff0a; }
+        #navSettings { border-top-color: #ffffff1c; border-radius: 12px; margin-top: 25px; }
+        .navfoot { display: block; margin-top: auto; padding: 38px 13px 5px; font-size: 10px; color: #b4c5b7; line-height: 1.8; }
+        .pagehead { padding-top: 33px; padding-bottom: 12px; }
+        .pagehead h1 { font-size: 33px; }
+        .app { width: 100%; margin: 0; padding-bottom: 50px; }
+        .sheet { width: 570px; border-radius: 24px; }
+        .sheet-in { padding: 26px; }
+      }
+      @media (min-width: 1080px) {
+        .cols-rec { grid-template-columns: minmax(0, 1.3fr) minmax(290px, .85fr); gap: 24px; }
+        .cols-rec > .colA { padding: 25px; }
+        .cols-rec .catgrid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+        .cols-rec .cat { font-size: 11px; min-height: 56px; }
+        .cols-rec > .colB > h2.sec:first-child { margin-top: 3px; }
+        .cols-rec .kbdhint { gap: 10px; font-size: 10px; }
+        .assetgrid { gap: 20px; }
+      }
+      @media (min-width: 1380px) {
+        .shell { gap: 40px; grid-template-columns: 220px minmax(0, 1fr); }
+        .cols-rec .catgrid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+      }
+      @media (max-width: 919px) {
+        .app { max-width: 660px; padding: 0 18px; }
+        .topbar-in { max-width: 660px; display: grid; grid-template-columns: 1fr auto auto; gap: 8px; padding: 13px 18px 11px; }
+        .topright { display: contents; }
+        .brand { grid-column: 1; grid-row: 1; font-size: 17px; }
+        #themeBtn { grid-row: 1; grid-column: 2; }
+        #gearBtn { grid-row: 1; grid-column: 3; }
+        .month-nav { grid-row: 2; grid-column: 1; justify-self: start; }
+        .syncchip { grid-row: 2; grid-column: 2 / 4; justify-self: end; padding: 4px 7px; font-size: 10px; }
+        .syncchip span { display: inline; }
+        .pagehead { padding-top: 24px; }
+        .pagehead h1 { font-size: 26px; }
+        .eyebrow { font-size: 9px; margin-bottom: 7px; }
+        .pagehead p { font-size: 12px; margin-top: 7px; }
+        .cols-rec > .colA { padding: 18px; }
+        .cols-rec > .colB { margin-top: 24px; }
+        .balance-card { padding: 22px; }
+        .balance-value { font-size: 32px; }
+        .tile { padding: 14px 10px; border-radius: 14px; }
+        .tile .v { font-size: clamp(15px, 3.8vw, 23px); }
+        .tile .k { font-size: 10px; }
+        .tile .d { font-size: 10px; }
+        .hero { padding: 22px 18px; }
+        .hero .v { font-size: clamp(28px, 8vw, 42px); }
+        .assetgrid > .card + .card { margin-top: 16px; }
+        .tabs-in { max-width: 660px; padding: 5px 12px; }
+        .tabs button { min-height: 58px; border-radius: 14px; font-size: 11px; }
+        .tabs button[aria-current="page"] { background: var(--soft-accent); }
+        .tabs button[aria-current="page"]::before { display: none; }
+        .tabs button svg { width: 21px; height: 21px; }
+        .sheet-in { padding: 14px 18px calc(24px + env(safe-area-inset-bottom)); }
+      }
+      @media (max-width: 380px) {
+        .app { padding: 0 12px; }
+        .cols-rec > .colA { padding: 14px; }
+        .amtinput { font-size: 46px; }
+        .cat { font-size: 11px; }
+        .hold { padding-left: 18px; gap: 8px; }
+        .hold .amt { font-size: 12px; }
+      }
       @media (prefers-reduced-motion: reduce) {
         * {
           transition: none !important;
@@ -1675,6 +1869,7 @@
 
     <div class="shell">
       <nav class="tabs" aria-label="화면">
+        <div class="navintro"><span>MY MONEY JOURNAL</span><strong>나의 돈,<br>나만의 흐름.</strong></div>
         <div class="tabs-in">
           <button data-tab="record" aria-current="page">
             <svg
@@ -1771,6 +1966,7 @@
             ><span>설정</span>
           </button>
         </div>
+        <div class="navfoot">잔고와 흐름<br>개인 가계부 · 자산 기록</div>
       </nav>
       <main class="app" id="main"></main>
     </div>
@@ -2132,23 +2328,59 @@
         SLV: "NYSEARCA:SLV",
       };
       function normalizeQuoteSymbol(v) {
-        return String(v || "")
-          .trim()
-          .toUpperCase()
-          .replace(/\s+/g, "");
+        const code = quoteNameKey(v).replace(/^['’]/, "");
+        const known = knownQuoteSymbol(code);
+        if (known) return known;
+        if (/^\d{6}$/.test(code)) return "KRX:" + code;
+        if (/^A\d{6}$/.test(code)) return "KRX:" + code.slice(1);
+        if (/^\d{6}\.K[QS]$/.test(code))
+          return (code.endsWith(".KQ") ? "KOSDAQ:" : "KRX:") + code.slice(0, 6);
+        return code.replace(/^KOSPI:/, "KRX:");
+      }
+      function quoteNameKey(value) {
+        return String(value || "").normalize("NFKC").toUpperCase()
+          .replace(/[\s\u200B-\u200D\uFEFF]/g, "");
+      }
+      function knownQuoteSymbol(value) {
+        const key = quoteNameKey(value);
+        const found = Object.entries(BUILTIN_QUOTE_SYMBOLS)
+          .find(([name]) => quoteNameKey(name) === key);
+        if (found) return found[1];
+        /* 두 상품의 옛 TR 명칭만 허용한다. (H)·레버리지 등 다른 ETF와 혼동하지 않는다. */
+        const legacy = {
+          "KODEX미국나스닥100TR": "KRX:379810",
+          "KODEX미국나스닥100(TR)": "KRX:379810",
+          "KODEX미국S&P500TR": "KRX:379800",
+          "KODEX미국S&P500(TR)": "KRX:379800",
+        };
+        return legacy[key] || "";
       }
       function inferQuoteSymbol(name) {
-        const n = String(name || "").trim();
-        if (BUILTIN_QUOTE_SYMBOLS[n]) return BUILTIN_QUOTE_SYMBOLS[n];
+        const n = quoteNameKey(name);
+        const known = knownQuoteSymbol(n);
+        if (known) return known;
         return /^[A-Z][A-Z0-9.-]{0,14}$/.test(n) ? n : "";
       }
+      function repairHoldingSymbols() {
+        let changed = false;
+        (S.assets || []).forEach((a) => (a.holdings || []).forEach((h) => {
+          const symbol = normalizeQuoteSymbol(h.symbol) || inferQuoteSymbol(h.name);
+          if (symbol && symbol !== h.symbol) {
+            h.symbol = symbol;
+            changed = true;
+          }
+        }));
+        return changed;
+      }
+      const quoteIssues = new Map();
 
       const DATA_VERSION = 5;
       /* 예전 버전에서 저장된 데이터를 새 자산·투자 구조로 올린다.
    거래 내역은 절대 건드리지 않고 자산/월별 투자기록만 손본다. */
       function migrate() {
         const from = S.v || 1;
-        if (from >= DATA_VERSION) return false;
+        const repaired = repairHoldingSymbols();
+        if (from >= DATA_VERSION) return repaired;
         if (from < 2) {
           const hasNew = (S.assets || []).some(
             (a) =>
@@ -2458,6 +2690,7 @@
           throw new Error("먼저 설정에서 구글 시트를 연결해 주세요.");
         if (SYNC.stale)
           throw new Error("Apps Script를 최신 코드(v6)로 다시 배포해 주세요.");
+        if (repairHoldingSymbols()) persist("assets");
         const symbols = quoteSymbols(only);
         if (!symbols.length)
           throw new Error("시세코드가 있는 종목이 없어요.");
@@ -2467,6 +2700,13 @@
             .filter((q) => q && q.ok && Number(q.price) > 0)
             .map((q) => [normalizeQuoteSymbol(q.symbol), q]),
         );
+        symbols.forEach((symbol) => {
+          if (found.has(symbol)) quoteIssues.delete(symbol);
+          else {
+            const response = (j.quotes || []).find((q) => normalizeQuoteSymbol(q.symbol) === symbol);
+            quoteIssues.set(symbol, response?.error || "시세 응답이 없어요. 잠시 후 다시 조회해 주세요.");
+          }
+        });
         let updated = 0;
         S.assets.forEach((a) =>
           (a.holdings || []).forEach((h) => {
@@ -2487,7 +2727,7 @@
           toast(
             updated
               ? `${updated}개 시세 갱신${failed ? ` · ${failed}개 실패` : ""}`
-              : "시세를 받지 못했어요. 시세코드를 확인해 주세요.",
+              : "시세 조회에 실패했어요. 기존 가격을 유지하며 종목에 원인을 표시했어요.",
           );
         return { updated, failed };
       }
@@ -3117,10 +3357,14 @@
     </div>
     <div class="colB">
     <h2 class="sec">${ymLabel(UI.month)} 현황</h2>
-    <div class="tiles">
-      <div class="tile"><div class="k">수입</div><div class="v" style="color:var(--accent)">${won(s.income)}</div></div>
-      <div class="tile"><div class="k">지출</div><div class="v" style="color:var(--expense)">${won(s.net)}</div><div class="d">${s.deduct ? `적립 ${won(s.deduct)} 차감` : "&nbsp;"}</div></div>
-      <div class="tile"><div class="k">남은 돈</div><div class="v">${won(s.left)}</div></div>
+    <div class="balance-card">
+      <div class="balance-label">이번 달 남은 돈</div>
+      <div class="balance-value">${won(s.left)}<small>원</small></div>
+      <div class="balance-note">기록한 수입에서 지출을 뺀 금액이에요</div>
+      <div class="balance-foot">
+        <div><span>들어온 돈</span><strong>${won(s.income)}<small> 원</small></strong></div>
+        <div><span>나간 돈${s.deduct ? " · 적립 차감" : ""}</span><strong>${won(s.net)}<small> 원</small></strong></div>
+      </div>
     </div>
 
     ${
@@ -3519,7 +3763,8 @@
                     h,
                     i,
                   ) => `<button class="hold" data-asset="${a.id}" data-hold="${i}">
-                 <span class="grow"><span>${esc(h.name)}</span><span class="mm">${h.qty}주 · ${holdingPriceText(h)}</span></span>
+                 <span class="grow"><span>${esc(h.name)}</span><span class="mm">${h.qty}주 · ${holdingPriceText(h)}</span>
+                 <span class="quote-badge ${quoteIssues.has(normalizeQuoteSymbol(h.symbol)) ? "failed" : ""}">${esc(normalizeQuoteSymbol(h.symbol) || "코드 미연결")}${quoteIssues.has(normalizeQuoteSymbol(h.symbol)) ? " · 조회 실패" : !h.quotedAt && h.symbol ? " · 시세 조회 전" : ""}</span></span>
                  <span class="amt">${won(holdVal(h))}</span></button>`,
                 )
                 .join("")
@@ -3962,7 +4207,14 @@
             wealth: viewWealth,
             settings: viewSettings,
           }[UI.tab] || viewRecord;
-        $("#main").innerHTML = v();
+        const page = {
+          record: ["DAILY RECORD", "오늘의 기록", "오늘 쓴 돈, 가볍게 남겨보세요."],
+          list: ["MY TRANSACTIONS", "차곡차곡 쌓인 내역", "하나의 기록부터 한 달의 흐름까지."],
+          stats: ["MONTHLY INSIGHT", "한눈에 보는 흐름", "어디에 쓰고, 얼마나 남겼는지 살펴보세요."],
+          wealth: ["MY PORTFOLIO", UI.wealth === "invest" ? "나의 투자 기록" : "자산의 현재", "계좌부터 보유 종목까지, 나의 자산을 한곳에."],
+          settings: ["MAKE IT YOURS", "나에게 맞게", "자주 쓰는 기록과 동기화를 관리하세요."],
+        }[UI.tab] || ["DAILY RECORD", "오늘의 기록", ""];
+        $("#main").innerHTML = `<header class="pagehead"><span class="eyebrow">${page[0]}</span><h1>${page[1]}</h1><p>${page[2]}</p></header>` + v();
         window.scrollTo({ top: 0 });
         /* 넓은 화면에서만 자동 포커스 — 모바일에서 키패드가 멋대로 올라오지 않도록 */
         if (UI.tab === "record" && window.innerWidth >= 1080) {
@@ -3974,7 +4226,8 @@
       /* ============================== 시트 ============================== */
       let sheetOpen = false;
       function openSheet(html, after) {
-        $("#sheetIn").innerHTML = `<div class="handle"></div>` + html;
+        $("#sheetIn").innerHTML = `<div class="handle"></div><button class="sheet-close" id="closeSheetBtn" aria-label="닫기" title="닫기">×</button>` + html;
+        $("#closeSheetBtn").onclick = closeSheet;
         $("#scrim").hidden = false;
         $("#sheet").hidden = false;
         requestAnimationFrame(() => {
@@ -4116,7 +4369,9 @@
    값을 치면 평가금이 바로 다시 계산되고 계좌 평가액까지 따라 움직인다. */
       function quoteMetaHtml(h) {
         const symbol = normalizeQuoteSymbol(h.symbol);
-        if (!symbol) return "";
+        if (!symbol) return '<div class="hpl hquote-meta" data-hquote>시세코드를 입력하면 현재가를 연결할 수 있어요.</div>';
+        if (quoteIssues.has(symbol))
+          return `<div class="hpl hquote-meta quote-error" data-hquote><b>${esc(symbol)} · 조회 실패</b><br>${esc(quoteIssues.get(symbol))} 기존 가격은 유지했어요.</div>`;
         let detail = "시세코드 " + esc(symbol);
         if (Number(h.marketPrice) > 0 && h.currency) {
           const raw = Number(h.marketPrice).toLocaleString("ko-KR", {
@@ -4130,13 +4385,13 @@
             detail = `${esc(h.currency)} ${raw} × 환율 ${Number(h.fxRate).toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원 = ${won(h.price)}원`;
           }
         }
-        let at = "";
+        let at = h.quotedAt ? "" : " · 시세 조회 전";
         if (h.quotedAt) {
           const d = new Date(h.quotedAt);
           if (!Number.isNaN(d.getTime()))
             at = ` · ${d.toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} 갱신`;
         }
-        return `<div class="hpl" data-hquote>${detail}${at}</div>`;
+        return `<div class="hpl hquote-meta" data-hquote>${detail}${at}</div>`;
       }
       function holdEditRow(h, i) {
         const v = holdVal(h),
@@ -4152,7 +4407,7 @@
       <label>평단가<input type="number" inputmode="numeric" data-h="avg" value="${Number(h.avg) || 0}" aria-label="평단가"></label>
       <label>현재가<input type="number" inputmode="numeric" data-h="price" value="${Number(h.price) || 0}" aria-label="현재가"></label>
     </div>
-    <div class="hquote"><label>시세코드<input data-h="symbol" value="${esc(h.symbol || "")}" placeholder="NASDAQ:QQQ / KRX:005930" aria-label="시세코드"></label></div>
+    <div class="hquote"><label>시세코드<input data-h="symbol" value="${esc(h.symbol || "")}" placeholder="379810 또는 NASDAQ:QQQ" aria-label="시세코드"></label></div>
     ${quoteMetaHtml(h)}
     <div class="hpl" data-hpl></div>
   </div>`;
@@ -4205,8 +4460,8 @@
       <div class="field"><div class="row2">
         <input id="h_a" type="number" inputmode="numeric" placeholder="평단가"><input id="h_p" type="number" inputmode="numeric" placeholder="현재가">
       </div></div>
-      <div class="field"><input id="h_s" autocapitalize="characters" placeholder="시세코드 · NASDAQ:QQQ / KRX:005930"></div>
-      <div class="note" style="margin:-5px 0 10px">미국 티커명(QQQ·VOO 등)은 비워도 자동 연결돼요. 국내 종목은 KRX 또는 KOSDAQ 코드까지 넣어주세요.</div>
+      <div class="field"><input id="h_s" autocapitalize="characters" placeholder="시세코드 · 379810 / NASDAQ:QQQ"></div>
+      <div class="note" style="margin:-5px 0 10px">국내 종목은 6자리 코드만 입력해도 돼요. KODEX 미국나스닥100·미국S&P500, QQQ·VOO는 종목명으로도 자동 연결해요.</div>
       <button class="btn ghost" id="h_add" style="margin-bottom:14px">종목 추가</button>
     </div>
 
@@ -4292,22 +4547,27 @@
                     const h = (a.holdings || [])[i];
                     if (!h) return;
                     const f = inp.dataset.h;
+                    const previousSymbol = normalizeQuoteSymbol(h.symbol);
                     h[f] =
                       f === "name"
                         ? inp.value
                         : f === "symbol"
                           ? normalizeQuoteSymbol(inp.value)
                           : Number(inp.value) || 0;
-                    if (f === "price") {
+                    if (f === "price" || (f === "symbol" && h.symbol !== previousSymbol)) {
                       h.marketPrice = 0;
                       h.currency = "";
                       h.fxRate = 0;
                       h.quotedAt = "";
                     }
+                    const quote = $("[data-hquote]", el);
+                    if (quote) quote.outerHTML = quoteMetaHtml(h);
                     paintHolds();
                     saveHolds();
                   };
                   inp.onchange = () => {
+                    const h = (a.holdings || [])[i];
+                    if (h && inp.dataset.h === "symbol") inp.value = h.symbol || "";
                     clearTimeout(holdTimer);
                     commit({});
                     render();
@@ -4348,7 +4608,7 @@
                 b.textContent = "조회 중…";
                 try {
                   const symbols = (a.holdings || [])
-                    .map((h) => normalizeQuoteSymbol(h.symbol))
+                    .map((h) => normalizeQuoteSymbol(h.symbol) || inferQuoteSymbol(h.name))
                     .filter(Boolean);
                   const result = await refreshQuotes(symbols, {
                     quiet: true,
@@ -4359,7 +4619,7 @@
                   toast(
                     result.updated
                       ? `${result.updated}개 시세를 갱신했어요${result.failed ? ` · ${result.failed}개 실패` : ""}`
-                      : "시세를 받지 못했어요. 코드를 확인해 주세요.",
+                      : "시세 조회에 실패했어요. 종목 아래의 원인을 확인해 주세요.",
                   );
                 } catch (e) {
                   toast(e.message);
@@ -4379,8 +4639,6 @@
                 );
                 if (symbol && !/^[A-Z0-9.:^=_-]+$/.test(symbol))
                   return toast("시세코드는 영문·숫자·콜론(:)으로 입력해 주세요.");
-                if (/^\d{6}$/.test(symbol))
-                  return toast("국내 종목은 KRX:005930처럼 거래소도 넣어주세요.");
                 a.holdings = a.holdings || [];
                 const added = {
                   name: n,
@@ -4411,7 +4669,7 @@
                     toast(
                       result.updated
                         ? `${n} 추가 · 현재가도 불러왔어요`
-                        : `${n} 추가 · 시세코드를 확인해 주세요`,
+                        : `${n} 추가 · 시세 조회 실패, 기존 가격 유지`,
                     );
                   } catch (e) {
                     toast(`${n}은 추가했지만 시세 조회는 실패했어요`);
