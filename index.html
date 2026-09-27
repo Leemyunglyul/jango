@@ -3296,7 +3296,7 @@
           withdrawal: Number(input.withdrawal) || 0,
           principal:
             input.principal == null
-              ? t.principal
+              ? investmentPrincipalAmount(investmentPrincipalBasis(ym), input.contrib, input.withdrawal)
               : Number(input.principal) || 0,
           invest:
             input.invest == null
@@ -4776,6 +4776,24 @@
           },
         );
       }
+      /* 저장된 달은 기존 원금에 입출금 변경분만 반영한다. 과거 확정 원금은 덮어쓰지 않는다. */
+      function investmentPrincipalBasis(ym, excludedYm) {
+        const saved = S.investMonths[ym];
+        if (saved) return {
+          amount: (Number(saved.principal) || 0) - (Number(saved.contrib) || 0) + (Number(saved.withdrawal) || 0),
+          source: "saved",
+        };
+        const previousYm = Object.keys(S.investMonths)
+          .filter((key) => key < ym && key !== excludedYm).sort().pop();
+        if (previousYm) return {
+          amount: Number(S.investMonths[previousYm].principal) || 0,
+          source: previousYm,
+        };
+        return { amount: 0, source: "first" };
+      }
+      function investmentPrincipalAmount(basis, contribution, withdrawal) {
+        return Math.max(0, basis.amount + Math.max(0, Number(contribution) || 0) - Math.max(0, Number(withdrawal) || 0));
+      }
       function openInvestmentMonthSheet(initialYm) {
         const originalYm =
           initialYm && S.investMonths[initialYm] ? initialYm : null;
@@ -4789,14 +4807,31 @@
     </div></div>
     <div class="field"><div class="row2">
       <div><label>월말 투자 평가액</label><input id="im_v" type="number" inputmode="numeric"></div>
-      <div><label>누적 원금</label><input id="im_p" type="number" inputmode="numeric"></div>
+      <div><label for="im_p" id="im_p_label">누적 원금 (자동)</label><input id="im_p" type="number" inputmode="numeric" min="0" readonly></div>
     </div></div>
+    <div class="note" id="im_p_hint" aria-live="polite" style="margin-bottom:8px"></div>
+    <button class="btn sm ghost" id="im_p_toggle" style="margin-bottom:14px" aria-pressed="false">원금 직접 보정</button>
     <div class="field"><label>메모</label><input id="im_n" placeholder="예: ISA 50만원 추가 납입, VOO 매수"></div>
     <div class="note" id="im_hint" style="margin-bottom:12px"></div>
     <div id="im_holds" class="card rows" style="margin-bottom:14px"></div>
     <div class="stack"><button class="btn" id="im_save">이 달 기록 저장</button>
       ${originalYm ? `<button class="btn danger" id="im_del">이 달 기록 삭제</button>` : ""}</div>`,
           () => {
+            let principalBasis, manualPrincipal = false;
+            const updatePrincipal = () => {
+              $("#im_p").readOnly = !manualPrincipal;
+              $("#im_p_label").textContent = manualPrincipal ? "누적 원금 (직접 입력)" : "누적 원금 (자동)";
+              $("#im_p_toggle").textContent = manualPrincipal ? "자동 계산으로 돌아가기" : "원금 직접 보정";
+              $("#im_p_toggle").setAttribute("aria-pressed", String(manualPrincipal));
+              if (!manualPrincipal) $("#im_p").value = investmentPrincipalAmount(principalBasis, $("#im_c").value, $("#im_w").value);
+              $("#im_p_hint").textContent = manualPrincipal
+                ? "입력한 원금을 그대로 저장해요. 다음 달부터 이 금액에 납입·인출을 자동 반영합니다."
+                : principalBasis.source === "saved"
+                  ? "저장된 원금에 납입·인출 변경분을 자동 반영해요."
+                  : principalBasis.source === "first"
+                    ? "첫 기록은 납입 − 인출로 계산해요. 이전부터 투자한 원금이 있으면 ‘원금 직접 보정’에서 누적 원금을 한 번 입력하세요."
+                    : `${ymLabel(principalBasis.source)} 원금 ${won(principalBasis.amount)}원 + 이번 달 납입 − 인출로 자동 계산해요. 빠진 달의 입출금이 있으면 해당 월 기록도 추가하세요.`;
+            };
             const fill = () => {
               const ym = $("#im_m").value || nowYm;
               const saved = S.investMonths[ym];
@@ -4820,6 +4855,9 @@
               $("#im_w").value = Number(base.withdrawal) || 0;
               $("#im_v").value = Number(base.invest) || 0;
               $("#im_p").value = Number(base.principal) || 0;
+              principalBasis = investmentPrincipalBasis(ym, originalYm);
+              manualPrincipal = false;
+              updatePrincipal();
               $("#im_n").value = base.memo || "";
               const savedHolds = Array.isArray(base.holdings)
                 ? base.holdings
@@ -4833,13 +4871,20 @@
                 : `<div class="empty" style="padding:14px">저장된 종목별 내역이 없어요.</div>`;
               $("#im_hint").innerHTML = saved
                 ? current
-                  ? `<b>${ymLabel(ym)} 기록</b>의 납입·인출·메모는 유지하고, 현재 평가액과 보유종목을 다시 불러왔어요.`
+                  ? `<b>${ymLabel(ym)} 기록</b>의 원금·납입·인출·메모는 유지하고, 현재 평가액과 보유종목을 다시 불러왔어요.`
                   : `<b>${ymLabel(ym)} 저장 기록</b>을 수정합니다. 저장하면 해당 월만 바뀌어요.`
                 : current
-                  ? `현재 보유 종목 기준 평가액·원금이 채워졌어요. 저장할 때 종목별 수량과 가격도 같이 기록합니다.`
-                  : `과거 월을 새로 입력할 때는 그달의 평가액과 원금을 직접 넣어주세요.`;
+                  ? `현재 보유 종목 기준 평가액이 채워졌어요. 저장할 때 종목별 수량과 가격도 같이 기록합니다.`
+                  : `과거 월을 새로 입력할 때는 그달의 평가액을 넣어주세요. 원금은 납입·인출에 따라 자동 계산됩니다.`;
             };
             $("#im_m").onchange = fill;
+            $("#im_c").oninput = updatePrincipal;
+            $("#im_w").oninput = updatePrincipal;
+            $("#im_p_toggle").onclick = () => {
+              manualPrincipal = !manualPrincipal;
+              updatePrincipal();
+              if (manualPrincipal) $("#im_p").focus();
+            };
             fill();
             $("#im_save").onclick = async () => {
               const ym = $("#im_m").value || nowYm;
