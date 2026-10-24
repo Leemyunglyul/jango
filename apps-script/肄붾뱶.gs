@@ -288,7 +288,7 @@ function readTx() {
     months[ym].items.push({
       id: String(r[7] || ""),
       d:  d,
-      k:  String(r[2]).indexOf("수입") >= 0 ? "in" : "ex",
+      k:  String(r[2]).indexOf("투자") >= 0 ? "inv" : String(r[2]).indexOf("수입") >= 0 ? "in" : "ex",
       c:  String(r[8] || ""),
       a:  Number(r[4]) || 0,
       m:  String(r[5] || ""),
@@ -479,7 +479,7 @@ function writeTx(rows) {
     return [
       toDate(r.d),
       String(r.d).slice(0, 7),
-      r.k === "in" ? "수입" : "지출",
+      r.k === "in" ? "수입" : r.k === "inv" ? "투자" : "지출",
       r.cn || "",
       Number(r.a) || 0,
       r.m || "",
