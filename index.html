@@ -8,12 +8,12 @@
     />
     <meta
       name="theme-color"
-      content="#F6F5F0"
+      content="#F2F4F6"
       media="(prefers-color-scheme: light)"
     />
     <meta
       name="theme-color"
-      content="#131512"
+      content="#111114"
       media="(prefers-color-scheme: dark)"
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -43,10 +43,10 @@
   </head>
   <body>
     <title>잔고와 흐름</title>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
     />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -126,8 +126,7 @@
         background: var(--ground);
         color: var(--ink);
         font-family:
-          "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui,
-          sans-serif;
+          var(--font);
         font-size: 15px;
         line-height: 1.5;
         -webkit-font-smoothing: antialiased;
@@ -152,11 +151,11 @@
         border-radius: 6px;
       }
       .num {
-        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-family: var(--font);
         font-variant-numeric: tabular-nums;
       }
       .serif {
-        font-family: "Hahmlet", "Apple SD Gothic Neo", serif;
+        font-family: var(--font);
       }
 
       /* ---------- shell ---------- */
@@ -181,7 +180,7 @@
         gap: 10px;
       }
       .brand {
-        font-family: "Hahmlet", serif;
+        font-family: var(--font);
         font-weight: 600;
         font-size: 17px;
         letter-spacing: -0.01em;
@@ -399,7 +398,7 @@
         gap: 5px;
       }
       .kbdhint kbd {
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-size: 11px;
         line-height: 1.4;
         background: var(--surface2);
@@ -670,14 +669,14 @@
         border-bottom-color: var(--accent);
       }
       .bigamt .w {
-        font-family: "IBM Plex Sans KR", sans-serif;
+        font-family: var(--font);
         font-size: 19px;
         font-weight: 500;
         color: var(--ink2);
         flex: none;
       }
       .amtinput {
-        font-family: "Hahmlet", "Apple SD Gothic Neo", serif;
+        font-family: var(--font);
         font-variant-numeric: tabular-nums;
         font-size: clamp(40px, 13vw, 54px);
         font-weight: 600;
@@ -749,7 +748,7 @@
       .quick b {
         font-weight: 500;
         color: var(--ink3);
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
       }
       .catgrid {
         display: grid;
@@ -937,7 +936,7 @@
         letter-spacing: 0.02em;
       }
       .tile .v {
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-variant-numeric: tabular-nums;
         font-size: 17px;
         font-weight: 500;
@@ -961,7 +960,7 @@
       .lede b {
         color: var(--ink);
         font-weight: 600;
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-variant-numeric: tabular-nums;
       }
       .splitbar {
@@ -1021,7 +1020,7 @@
       }
       .bud .top .r {
         margin-left: auto;
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-variant-numeric: tabular-nums;
         font-size: 12.5px;
         color: var(--ink2);
@@ -1079,7 +1078,7 @@
         font-weight: 500;
       }
       .rank .v {
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-variant-numeric: tabular-nums;
         font-size: 13px;
         text-align: right;
@@ -1101,7 +1100,7 @@
         grid-column: 2/3;
         font-size: 11.5px;
         text-align: right;
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
       }
       .up {
         color: var(--crit);
@@ -1119,11 +1118,11 @@
       }
       svg.chart text {
         fill: var(--ink3);
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-size: 10px;
       }
       svg.chart text.lbl {
-        font-family: "IBM Plex Sans KR", sans-serif;
+        font-family: var(--font);
         fill: var(--ink2);
       }
       svg.chart .grid {
@@ -1170,7 +1169,7 @@
       }
       .tip .tr b {
         margin-left: auto;
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-weight: 500;
       }
 
@@ -1213,7 +1212,7 @@
         text-align: right;
         padding: 10px 11px;
         border-bottom: 1px solid var(--line-soft);
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-variant-numeric: tabular-nums;
       }
       .dtable tbody tr:last-child td {
@@ -1250,7 +1249,7 @@
         letter-spacing: 0.04em;
       }
       .hero .v {
-        font-family: "Hahmlet", serif;
+        font-family: var(--font);
         font-variant-numeric: tabular-nums;
         font-size: clamp(30px, 9vw, 40px);
         font-weight: 600;
@@ -1274,7 +1273,7 @@
       }
       .grouphead .gv {
         margin-left: auto;
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-variant-numeric: tabular-nums;
         letter-spacing: 0;
         text-transform: none;
@@ -1302,7 +1301,7 @@
       }
       .hold .amt {
         margin-left: auto;
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-variant-numeric: tabular-nums;
       }
       .hold .mm {
@@ -1343,7 +1342,7 @@
         border-bottom-color: var(--line);
       }
       .holdedit .hval {
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-variant-numeric: tabular-nums;
         font-size: 13px;
         white-space: nowrap;
@@ -1369,7 +1368,7 @@
         border-radius: 8px;
         padding: 7px 8px;
         width: 100%;
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-variant-numeric: tabular-nums;
         font-size: 13.5px;
         text-align: right;
@@ -1399,7 +1398,7 @@
         border-radius: 8px;
         padding: 7px 8px;
         width: 100%;
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-size: 13px;
         text-transform: uppercase;
       }
@@ -1452,7 +1451,7 @@
         margin: 8px auto 14px;
       }
       .sheet h3 {
-        font-family: "Hahmlet", serif;
+        font-family: var(--font);
         font-size: 17px;
         font-weight: 600;
         margin: 0 0 14px;
@@ -1481,7 +1480,7 @@
       }
       .field textarea {
         min-height: 130px;
-        font-family: "IBM Plex Mono", monospace;
+        font-family: var(--font);
         font-size: 12.5px;
         line-height: 1.6;
         resize: vertical;
@@ -1663,12 +1662,12 @@
       .syncchip { min-height: 34px; font-size: 11px; }
       .pagehead { padding: 30px 0 5px; }
       .eyebrow {
-        display: block; font-family: "IBM Plex Mono", monospace;
+        display: block; font-family: var(--font);
         font-size: 10px; font-weight: 500; letter-spacing: .18em;
         color: var(--accent); margin-bottom: 10px;
       }
       .pagehead h1 {
-        font-family: "Hahmlet", serif; font-size: 30px;
+        font-family: var(--font); font-size: 30px;
         letter-spacing: -.065em; font-weight: 500; line-height: 1.4; margin: 0;
       }
       .pagehead p { margin: 8px 0 0; color: var(--ink2); font-size: 13px; }
@@ -1685,7 +1684,7 @@
       .hold .mm { display: block; margin-top: 4px; }
       .quote-badge {
         display: inline-block; margin-top: 5px; padding: 2px 6px; border-radius: 5px;
-        font: 10px "IBM Plex Mono", monospace; color: var(--ink2); background: var(--surface2);
+        font: 10px var(--font); color: var(--ink2); background: var(--surface2);
       }
       .quote-badge.failed, .quote-error { color: var(--crit); }
       /* 추이 막대 */
@@ -1693,7 +1692,7 @@
       .trend .th { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--ink2); }
       .trend .th .tv { margin-left: auto; font-size: 16px; color: var(--ink); letter-spacing: -.02em; }
       .trend .td { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 12px; color: var(--ink3); margin-top: 3px; }
-      .trend .td .dv { font-family: "IBM Plex Mono", monospace; font-weight: 600; }
+      .trend .td .dv { font-family: var(--font); font-weight: 600; }
       .trend .bars { display: grid; gap: 6px; margin-top: 12px; }
       .trend .tb { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; padding: 4px 2px; border-radius: 9px; }
       .trend .tb:hover { background: var(--surface2); }
@@ -1716,16 +1715,16 @@
       .trend.dense .bars { gap: 2px !important; }
       .trend.dense .tb { padding: 4px 0; border-radius: 4px; }
       .trend.dense .tbar i { width: 78%; border-radius: 3px 3px 1px 1px; }
-      .trend.dense .tm { font-size: 10.5px; font-family: "IBM Plex Mono", monospace; }
+      .trend.dense .tm { font-size: 10.5px; font-family: var(--font); }
       .trend.dense .tbar { height: 84px; }
       .trend .tsum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px;
         padding-top: 11px; border-top: 1px solid var(--line-soft); }
       .trend .tsum span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
       .trend .tsum em { font-style: normal; font-size: 11px; color: var(--ink3); }
-      .trend .tsum b { font-family: "IBM Plex Mono", monospace; font-size: 13.5px; font-weight: 600; color: var(--ink);
+      .trend .tsum b { font-family: var(--font); font-size: 13.5px; font-weight: 600; color: var(--ink);
         letter-spacing: -.02em; overflow-wrap: anywhere; }
-      .trend .tsum small { font-size: 10.5px; color: var(--ink3); font-family: "IBM Plex Mono", monospace; }
-      .dchip { font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600; margin-left: 6px; color: var(--ink3); letter-spacing: 0; }
+      .trend .tsum small { font-size: 10.5px; color: var(--ink3); font-family: var(--font); }
+      .dchip { font-family: var(--font); font-size: 11px; font-weight: 600; margin-left: 6px; color: var(--ink3); letter-spacing: 0; }
       .pastbanner { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 14px;
         border: 1px solid var(--line); border-radius: 14px; background: var(--surface2); font-size: 12.5px; color: var(--ink2); }
       .pastbanner b { color: var(--ink); }
@@ -1749,7 +1748,7 @@
       .kindtoggle button { padding: 8px 21px; border-radius: 9px; min-height: 38px; }
       .kindtoggle button[aria-pressed="true"] { color: var(--accent); }
       .bigamt { margin: 24px 0 9px; padding-bottom: 13px; }
-      .amtinput { font-family: "IBM Plex Sans KR", sans-serif; font-size: 54px; font-weight: 500; max-width: calc(100% - 34px); }
+      .amtinput { font-family: var(--font); font-size: 54px; font-weight: 500; max-width: calc(100% - 34px); }
       .datepick input { min-height: 32px; }
       .quicks { gap: 6px; padding: 1px 0 8px; }
       .quick { background: var(--surface2); border-color: transparent; border-radius: 9px; padding: 9px 10px; font-size: 11px; }
@@ -1775,12 +1774,12 @@
         width: 160px; height: 160px; border-radius: 50%; border: 30px solid #d9edc20b; pointer-events: none;
       }
       .balance-card .balance-label { color: #bdcfc4; font-size: 12px; }
-      .balance-value { margin: 12px 0 5px; font: 500 34px "IBM Plex Sans KR", sans-serif; letter-spacing: -.05em; }
+      .balance-value { margin: 12px 0 5px; font: 500 34px var(--font); letter-spacing: -.05em; }
       .balance-value small { font-size: 15px; font-weight: 400; margin-left: 5px; }
       .balance-note { font-size: 11px; color: #bdcfc4; }
       .balance-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; border-top: 1px solid #ffffff20; margin-top: 24px; padding-top: 18px; }
       .balance-foot span { display: block; font-size: 11px; color: #bdcfc4; margin-bottom: 5px; }
-      .balance-foot strong { font: 500 17px "IBM Plex Sans KR", sans-serif; color: var(--mint); }
+      .balance-foot strong { font: 500 17px var(--font); color: var(--mint); }
       .balance-foot > div:last-child strong { color: #f4d4b2; }
       .seg { border-radius: 12px; margin-bottom: 16px; }
       .seg button { border-radius: 9px; padding: 9px 26px; }
@@ -1805,8 +1804,8 @@
           padding: 25px 14px 20px; min-height: calc(100dvh - 122px); display: flex; flex-direction: column;
         }
         .navintro { display: block; padding: 3px 13px 37px; color: #f0f6e9; }
-        .navintro span { display: block; font: 9px "IBM Plex Mono", monospace; letter-spacing: .19em; color: #b4c5b7; margin-bottom: 19px; }
-        .navintro strong { font: 500 23px/1.65 "Hahmlet", serif; letter-spacing: -.06em; }
+        .navintro span { display: block; font: 9px var(--font); letter-spacing: .19em; color: #b4c5b7; margin-bottom: 19px; }
+        .navintro strong { font: 500 23px/1.65 var(--font); letter-spacing: -.06em; }
         .tabs-in { width: 100%; gap: 8px; }
         .tabs button { min-height: 48px; color: #bdd0c2; border-radius: 12px; padding: 12px 16px; }
         .tabs button[aria-current="page"] { background: var(--mint); color: #183e31; }
@@ -1873,6 +1872,295 @@
         .cat { font-size: 11px; }
         .hold { padding-left: 18px; gap: 8px; }
         .hold .amt { font-size: 12px; }
+      }
+
+      /* ════════ 깔끔한 금융 앱 스타일 ════════
+         밝은 회색 바탕 위 테두리 없는 흰 카드, 굵은 산세리프 숫자, 파란 포인트.
+         앞쪽 규칙은 그대로 두고 이 층이 마지막에 덮는다. */
+      :root {
+        --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+          "Malgun Gothic", system-ui, sans-serif;
+        --ground: #f2f4f6;
+        --surface: #ffffff;
+        --surface2: #f2f4f6;
+        --raise: #ffffff;
+        --line: #e5e8eb;
+        --line-soft: #f2f4f6;
+        --ink: #191f28;
+        --ink2: #4e5968;
+        --ink3: #8b95a1;
+        --accent: #3182f6;
+        --accent-soft: #e8f3ff;
+        --expense: #ff7a45;
+        --invest: #7c5cfc;
+        --good: #12b886;
+        --warn: #f5a524;
+        --crit: #f04452;
+        --up: #f04452;
+        --down: #3182f6;
+        --chip: #f2f4f6;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        --sheet-shadow: 0 -10px 40px rgba(0, 0, 0, 0.12);
+        --focus: #3182f6;
+        --soft-accent: var(--accent-soft);
+        --r-card: 22px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --ground: #111114;
+          --surface: #1d1d22;
+          --surface2: #2a2a31;
+          --raise: #26262c;
+          --line: #34343c;
+          --line-soft: #2a2a31;
+          --ink: #f2f4f6;
+          --ink2: #b0b8c1;
+          --ink3: #7f8893;
+          --accent: #4593fc;
+          --accent-soft: #1f2d45;
+          --expense: #ff8a5c;
+          --invest: #9b87ff;
+          --good: #2fd4a0;
+          --warn: #ffc24b;
+          --crit: #ff5c6c;
+          --up: #ff5c6c;
+          --down: #4593fc;
+          --chip: #2a2a31;
+          --shadow: none;
+          --sheet-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+          --focus: #4593fc;
+        }
+      }
+      :root[data-theme="dark"] {
+        --ground: #111114;
+        --surface: #1d1d22;
+        --surface2: #2a2a31;
+        --raise: #26262c;
+        --line: #34343c;
+        --line-soft: #2a2a31;
+        --ink: #f2f4f6;
+        --ink2: #b0b8c1;
+        --ink3: #7f8893;
+        --accent: #4593fc;
+        --accent-soft: #1f2d45;
+        --expense: #ff8a5c;
+        --invest: #9b87ff;
+        --good: #2fd4a0;
+        --warn: #ffc24b;
+        --crit: #ff5c6c;
+        --up: #ff5c6c;
+        --down: #4593fc;
+        --chip: #2a2a31;
+        --shadow: none;
+        --sheet-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+        --focus: #4593fc;
+      }
+      body { font-family: var(--font); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; word-break: keep-all; overflow-wrap: break-word; }
+      .num { font-family: var(--font); }
+
+      /* 상단 */
+      .topbar { background: color-mix(in srgb, var(--ground) 92%, transparent); border-bottom: 0; }
+      .brand { font-size: 18px; font-weight: 700; letter-spacing: -0.04em; }
+      .brand .dot { width: 22px; height: 22px; border-radius: 7px; background: var(--accent); box-shadow: none; vertical-align: -5px; }
+      .iconbtn { background: transparent; border: 0; color: var(--ink2); }
+      .iconbtn:hover { background: var(--surface); }
+      .month-nav { background: var(--surface); border: 0; border-radius: 14px; box-shadow: var(--shadow); }
+      .month-nav .m { font-weight: 700; font-size: 14px; color: var(--ink); }
+      .month-nav button { color: var(--ink3); border-radius: 10px; }
+      .syncchip { background: var(--surface); border: 0; border-radius: 999px; color: var(--ink2); }
+
+      /* 제목 */
+      .eyebrow { display: none; }
+      .pagehead { padding: 22px 2px 6px; }
+      .pagehead h1 { font-family: var(--font); font-size: 26px; font-weight: 700; letter-spacing: -0.04em; line-height: 1.35; }
+      .pagehead p { color: var(--ink3); font-size: 14px; margin-top: 4px; }
+      h2.sec { font-size: 17px; font-weight: 700; color: var(--ink); letter-spacing: -0.03em; margin: 28px 2px 12px; text-transform: none; }
+
+      /* 카드 */
+      .card, .tile, .hero, .cols-rec > .colA, .trend, .balance-card {
+        background: var(--surface); border: 0; border-radius: var(--r-card); box-shadow: var(--shadow);
+      }
+      .card.pad { padding: 20px; }
+      .tiles { gap: 10px; }
+      .tile { padding: 18px 18px 16px; }
+      .tile + .tile { border-left: 0; }
+      .tile .k { font-size: 13px; color: var(--ink3); font-weight: 500; text-transform: none; letter-spacing: -0.02em; }
+      .tile .v { font-family: var(--font); font-size: clamp(18px, 2vw, 24px); font-weight: 700; letter-spacing: -0.03em; margin-top: 6px; }
+      .tile .d { font-size: 12px; color: var(--ink3); }
+      .hero { padding: 24px; }
+      .hero .k { font-size: 14px; color: var(--ink2); font-weight: 600; letter-spacing: -0.02em; text-transform: none; }
+      .hero .v { font-family: var(--font); font-size: clamp(30px, 7vw, 40px); font-weight: 700; letter-spacing: -0.04em; margin: 8px 0 6px; }
+      .hero .v span { font-family: var(--font) !important; font-weight: 600 !important; }
+      .hero .d { color: var(--ink3); font-size: 13px; }
+      .splitbar { height: 12px; border-radius: 999px; gap: 2px; background: var(--surface2); }
+      .splitbar div { font-size: 0; }
+
+      /* 목록 — 줄 사이 선 없이 넉넉하게, 왼쪽 동그란 아이콘 */
+      .row { min-height: 64px; padding: 14px 20px; gap: 14px; border-bottom: 0; }
+      .row .nm { font-size: 16px; font-weight: 600; color: var(--ink); }
+      .row .mm { font-size: 13px; color: var(--ink3); }
+      .row .amt { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; }
+      .row > .dot { position: relative; width: 40px; height: 40px; border-radius: 50%; }
+      .row > .dot::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--surface); opacity: 0.84; }
+      .row > .dot::after { content: ""; position: absolute; left: 14px; top: 14px; width: 12px; height: 12px; border-radius: 50%; background: inherit; }
+      .grouphead { background: none; padding: 20px 20px 4px; font-size: 14px; font-weight: 600; color: var(--ink2);
+        letter-spacing: -0.02em; text-transform: none; border-radius: 0; }
+      .grouphead .gv { font-family: var(--font); font-size: 14px; font-weight: 700; color: var(--ink); }
+      .hold { padding: 10px 20px 10px 74px; border-bottom: 0; font-size: 14px; color: var(--ink2); }
+      .hold .amt { font-family: var(--font); font-weight: 600; color: var(--ink); }
+      .quote-badge { font-family: var(--font); background: var(--surface2); border-radius: 6px; color: var(--ink3); }
+      .daymark { font-size: 13px; font-weight: 600; color: var(--ink3); padding: 18px 20px 4px; background: none; border: 0; }
+      .tag { background: var(--surface2); color: var(--ink2); border-radius: 6px; font-weight: 600; letter-spacing: 0; }
+      .empty { color: var(--ink3); }
+      @media (hover: hover) {
+        .row:hover, .hold:hover, .cat:hover { background: var(--surface2); }
+        .card .row:first-child:hover { border-radius: var(--r-card) var(--r-card) 0 0; }
+        .card .row:last-child:hover { border-radius: 0 0 var(--r-card) var(--r-card); }
+      }
+
+      /* 버튼 */
+      .btn { border-radius: 16px; min-height: 56px; font-size: 16px; font-weight: 700; background: var(--accent); box-shadow: none !important; }
+      .btn.sm { min-height: 40px; border-radius: 12px; font-size: 14px; font-weight: 600; padding: 9px 14px; }
+      .btn.ghost { background: var(--surface2); border: 0; color: var(--ink2); font-weight: 600; }
+      .card .btn.ghost, .hero .btn.ghost { background: var(--surface2); }
+      .btn.danger { background: color-mix(in srgb, var(--crit) 10%, transparent); border: 0; color: var(--crit); }
+      .btn:disabled, .btn[disabled] { opacity: 1; background: color-mix(in srgb, var(--accent) 35%, var(--surface)); }
+      .hstack .btn.ghost { background: var(--surface); }
+
+      /* 세그먼트 */
+      .seg, .kindtoggle { background: var(--line-soft); border: 0; border-radius: 14px; padding: 4px; }
+      .main-seg, .seg { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+      .seg button, .kindtoggle button { border-radius: 10px; color: var(--ink3); font-weight: 600; }
+      .seg button[aria-pressed="true"], .kindtoggle button[aria-pressed="true"] {
+        background: var(--surface); color: var(--ink); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      }
+      .kindtoggle { background: var(--surface2); }
+
+      /* 기록 입력 */
+      .cols-rec > .colA { padding: 22px; }
+      .amtinput { font-family: var(--font); font-weight: 700; font-size: 44px; letter-spacing: -0.04em; }
+      .bigamt { border-bottom-color: var(--line); }
+      .bigamt .w { font-weight: 600; color: var(--ink3); }
+      .quick { background: var(--surface2); border: 0; border-radius: 12px; padding: 9px 12px; font-size: 13px; font-weight: 600; color: var(--ink2); }
+      .quick b { font-family: var(--font); font-size: 12px; font-weight: 600; color: var(--ink3); }
+      .cat { background: var(--surface2); border: 0; border-radius: 14px; min-height: 64px; font-size: 13px; font-weight: 600; color: var(--ink2) !important; }
+      .cat[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent) !important; box-shadow: none; }
+      .cat .dot { width: 8px; height: 8px; }
+      .memoinput { background: var(--surface2); border: 0; border-radius: 14px; min-height: 52px; font-size: 14px; }
+      .banner { background: color-mix(in srgb, var(--warn) 12%, var(--surface)); border: 0; border-radius: 16px; }
+      .banner .t { font-size: 14px; font-weight: 700; }
+      .banner .s { font-size: 12.5px; color: var(--ink2); }
+      .banner button { background: var(--warn); color: #fff; border-radius: 10px; font-weight: 700; font-size: 13px; }
+      .lede { background: var(--surface); border: 0; border-radius: var(--r-card); }
+
+      /* 이번 달 남은 돈 — 흰 카드에 큰 숫자 */
+      .balance-card { color: var(--ink); padding: 24px; }
+      .balance-card::after { display: none; }
+      .balance-card .balance-label { color: var(--ink2); font-size: 14px; font-weight: 600; }
+      .balance-value { font-family: var(--font); font-size: 34px; font-weight: 700; letter-spacing: -0.04em; color: var(--ink); }
+      .balance-value small { color: var(--ink2); font-weight: 600; }
+      .balance-note { color: var(--ink3); font-size: 13px; }
+      .balance-foot { border-top: 1px solid var(--line-soft); gap: 12px; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); }
+      .balance-foot span { color: var(--ink3); font-size: 13px; }
+      .balance-foot strong { font-family: var(--font); font-size: 17px; font-weight: 700; color: var(--ink); }
+      .balance-foot > div:first-child strong { color: var(--accent); }
+      .balance-foot > div:last-child strong { color: var(--ink); }
+      .balance-foot > div:nth-child(3) strong { color: var(--invest) !important; }
+
+      /* 추이 */
+      .trend { padding: 20px; }
+      .trend .th { font-size: 15px; font-weight: 700; color: var(--ink); }
+      .trend .th .tv { font-family: var(--font); font-size: 18px; font-weight: 700; }
+      .trend .td { font-size: 13px; }
+      .trend .td .dv, .trend .tsum b, .trend .tsum small, .trend.dense .tm, .dchip { font-family: var(--font); }
+      .trend .trange button { border: 0; background: var(--surface2); color: var(--ink3); font-weight: 600; font-size: 12.5px; padding: 5px 12px; }
+      .trend .trange button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+      .trend .tb[aria-current="true"] { background: var(--surface2); }
+      .trend .tbar i { border-radius: 8px 8px 4px 4px; }
+      .trend .tsum { border-top-color: var(--line-soft); }
+      .trend .tsum b { font-size: 15px; font-weight: 700; }
+      .pastbanner { background: var(--accent-soft); border: 0; border-radius: 16px; color: var(--ink2); }
+
+      /* 표 */
+      .card-table { padding: 6px 0; }
+      .dtable th { color: var(--ink3); font-weight: 600; background: none; border-bottom: 1px solid var(--line-soft); }
+      .dtable td { border-bottom: 1px solid var(--line-soft); }
+      .dtable td, .dtable th { font-family: var(--font); }
+      .rank { border-bottom: 0; padding: 14px 20px; }
+      .rank .n { font-size: 15px; font-weight: 600; }
+      .rank .v { font-family: var(--font); font-size: 15px; font-weight: 700; }
+      .rank .bar { height: 8px; background: var(--surface2); }
+      .rank .delta { font-family: var(--font); color: var(--ink3); }
+
+      /* 시트 */
+      .sheet { background: var(--surface); border-radius: 28px 28px 0 0; }
+      .sheet h3 { font-family: var(--font); font-size: 21px; font-weight: 700; letter-spacing: -0.04em; }
+      .handle { background: var(--line); }
+      .field label { font-size: 13px; color: var(--ink3); font-weight: 600; }
+      .field input, .field select, .field textarea { background: var(--surface2); border: 0; border-radius: 14px; min-height: 52px; font-size: 16px; }
+      .field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+      .holdedit { border-bottom: 1px solid var(--line-soft); }
+      .holdedit .hgrid input { background: var(--surface2); border: 0; border-radius: 10px; font-family: var(--font); }
+      .sheet-close { background: var(--surface2); border: 0; }
+      .toast { background: #333d4b; color: #fff; border-radius: 14px; font-weight: 600; }
+
+      /* 하단 탭(모바일) */
+      nav.tabs { background: color-mix(in srgb, var(--surface) 94%, transparent); border-top: 1px solid var(--line-soft); }
+      .tabs button { color: var(--ink3); font-weight: 600; }
+      .tabs button[aria-current="page"] { color: var(--ink); background: none !important; }
+      .tabs button[aria-current="page"] svg { color: var(--ink); }
+
+      /* 숫자가 줄바꿈되지 않게 */
+      .balance-foot strong { white-space: nowrap; font-size: clamp(15px, 4.2vw, 17px); }
+      .balance-foot strong small { font-size: 13px; }
+      .tile .v { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+      /* 스위치 줄 */
+      .switchline { background: var(--surface2); border: 0; border-radius: 14px; padding: 14px 16px; text-align: left; }
+      .switchline > span:first-child { flex: 1; min-width: 0; }
+      .switchline .hint { font-size: 12px; }
+      .sw { background: color-mix(in srgb, var(--ink) 14%, transparent); }
+      .sw[aria-pressed="true"] { background: var(--accent); }
+      /* 종목 편집 입력칸 */
+      .holdedit .hgrid input, .holdedit .hquote input { color: var(--ink); background: var(--surface2); border: 0; border-radius: 10px;
+        font-family: var(--font); font-weight: 600; }
+      .holdedit .hname { font-weight: 700; }
+      .holdedit .hval { font-family: var(--font); font-weight: 700; color: var(--ink); }
+      /* 금액 빠른 추가 */
+      .addamts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+      .addamts button { padding: 7px 12px; border-radius: 999px; background: var(--surface2); color: var(--ink2);
+        font-size: 13px; font-weight: 600; }
+      .addamts button:active { background: var(--accent-soft); color: var(--accent); }
+      .addamts .clr { color: var(--ink3); background: none; }
+      /* 되돌리기 알림 */
+      .toast.act { display: flex; align-items: center; gap: 14px; pointer-events: auto; padding: 10px 10px 10px 18px; }
+      .toast-undo { color: #8ec1ff; font-weight: 700; padding: 4px 8px; border-radius: 8px; }
+      .toast-undo:hover { background: #ffffff14; }
+      @media (min-width: 920px) {
+        /* 왼쪽 메뉴: 흰 카드 */
+        nav.tabs { background: var(--surface); border: 0; box-shadow: var(--shadow); }
+        .navintro { color: var(--ink); }
+        .navintro span { display: none; }
+        .navintro strong { font-family: var(--font); font-weight: 700; font-size: 21px; line-height: 1.5; letter-spacing: -0.04em; }
+        .tabs button { color: var(--ink3); font-size: 15px; }
+        .tabs button[aria-current="page"] { background: var(--surface2) !important; color: var(--ink); }
+        .tabs button:hover:not([aria-current="page"]) { background: var(--surface2); color: var(--ink2); }
+        #navSettings { border-top-color: var(--line-soft); }
+        .navfoot { color: var(--ink3); }
+        .pagehead h1 { font-size: 30px; }
+      }
+      @media (max-width: 919px) {
+        .pagehead { padding-top: 18px; }
+        .pagehead h1 { font-size: 24px; }
+        .tile { padding: 15px 12px; border-radius: 18px; }
+        .tile .k { font-size: 12px; }
+        .tile .v { font-size: clamp(14px, 3.9vw, 22px); letter-spacing: -0.04em; }
+        .tile .d { font-size: 11px; }
+        .cols-rec > .colA { padding: 18px; }
+        .amtinput { font-size: 40px; }
+        .hold { padding-left: 74px; }
+        /* 분류를 아래로 넘겨도 기록 버튼은 하단 탭 바로 위에 붙어 있다 */
+        #saveTx { position: sticky; bottom: calc(72px + env(safe-area-inset-bottom)); z-index: 5;
+          box-shadow: 0 6px 18px color-mix(in srgb, var(--ground) 80%, transparent) !important; }
       }
       @media (prefers-reduced-motion: reduce) {
         * {
@@ -2312,13 +2600,13 @@
       const GSHADE = {
         cash: "var(--accent)",
         isa: "var(--invest)",
-        overseas: "#7A5AF8",
-        domestic: "#0E8FA8",
+        overseas: "#22B8CF",
+        domestic: "#20C997",
         pension: "var(--warn)",
         etcinv: "var(--ink3)",
-        housing: "#B0762E",
+        housing: "#F59F6B",
         real: "var(--expense)",
-        insure: "#8C948E",
+        insure: "#A3AEBB",
         debt: "var(--crit)",
       };
       const isInvestGroup = (g) =>
@@ -3652,6 +3940,12 @@
         <input type="date" id="dpick" value="${UI.date}" max="2099-12-31">
         <span>·</span><span>${c.name}</span>
       </div>
+      <div class="addamts" role="group" aria-label="금액 더하기">
+        ${[[1000, "+1천"], [10000, "+1만"], [50000, "+5만"], [100000, "+10만"]]
+          .map(([n, t]) => `<button data-addamt="${n}">${t}</button>`)
+          .join("")}
+        ${UI.amount ? `<button data-addamt="0" class="clr">지우기</button>` : ""}
+      </div>
     </div>
 
     ${
@@ -3839,7 +4133,10 @@
               .map((d) => {
                 const dd = new Date(d + "T00:00:00");
                 return (
-                  `<div class="daymark">${Number(d.slice(8, 10))}일 ${dowKo[dd.getDay()]}요일<span style="float:right;font-weight:500;font-family:'IBM Plex Mono',monospace">${won(groups[d].filter((i) => i.k === "ex").reduce((a, i) => a + i.a, 0))}</span></div>` +
+                  `<div class="daymark">${Number(d.slice(8, 10))}일 ${dowKo[dd.getDay()]}요일${(() => {
+                    const spent = groups[d].filter((i) => i.k === "ex").reduce((a, i) => a + i.a, 0);
+                    return spent ? `<span style="float:right;font-weight:500">${won(spent)}</span>` : "";
+                  })()}</div>` +
                   groups[d].map(rowHTML).join("")
                 );
               })
@@ -4113,7 +4410,7 @@
     ${pastBanner(ym, w)}
     <div class="hero">
       <div class="k">총순자산 · 부동산 포함</div>
-      <div class="v">${won(w.total)}<span style="font-family:'IBM Plex Sans KR';font-size:18px;font-weight:500;color:var(--ink2)"> 원</span></div>
+      <div class="v">${won(w.total)}<span style="font-family:var(--font);font-size:18px;font-weight:500;color:var(--ink2)"> 원</span></div>
       <div class="d">부동산 제외 ${won(w.totalExReal)}${pv ? ` · 지난달 대비 ${deltaChip(w.total, pv.total)}` : ""}</div>
       <div style="margin-top:14px" class="splitbar">
         ${GROUPS.filter((gr) => (g[gr.id] || 0) > 0)
@@ -4166,7 +4463,7 @@
         return `<section>
     <div class="hero">
       <div class="k">총순자산 · 부동산 포함</div>
-      <div class="v">${won(total)}<span style="font-family:'IBM Plex Sans KR';font-size:18px;font-weight:500;color:var(--ink2)"> 원</span></div>
+      <div class="v">${won(total)}<span style="font-family:var(--font);font-size:18px;font-weight:500;color:var(--ink2)"> 원</span></div>
       <div class="d">부동산 제외 ${won(t.totalExReal)}${pv ? ` · 지난달 대비 ${deltaChip(total, pv.total)}` : ""}</div>
       <div style="margin-top:14px" class="splitbar">
         ${GROUPS.filter((gr) => (g[gr.id] || 0) > 0)
@@ -4212,7 +4509,7 @@
               <span class="grow"><span class="nm">${esc(a.name)}</span>
                 ${a.note && !v ? `<span class="mm needs"> ${esc(a.note)}</span>` : ""}
                 ${a.group === "real" && a.loan ? `<span class="mm"> 시세 ${shortWon(a.value)} − 대출 ${shortWon(a.loan)}</span>` : ""}
-                ${cost && v ? `<span class="mm" style="color:${pl >= 0 ? "var(--crit)" : "var(--invest)"}"> ${pl >= 0 ? "+" : ""}${won(pl)} (${((pl / cost) * 100).toFixed(1)}%)</span>` : ""}
+                ${cost && v ? `<span class="mm" style="color:${pl >= 0 ? "var(--up)" : "var(--down)"}"> ${pl >= 0 ? "+" : ""}${won(pl)} (${((pl / cost) * 100).toFixed(1)}%)</span>` : ""}
               </span>
               <span class="amt num">${won(v)}</span>
             </button>` +
@@ -4349,7 +4646,7 @@
       <div class="tile"><div class="k">누적 납입원금</div><div class="v">${V.principal ? won(V.principal) : "—"}</div>
         <div class="d">${V.principalNote}</div></div>
       <div class="tile"><div class="k">평가손익</div>
-        <div class="v" style="color:${V.principal ? (V.pl >= 0 ? "var(--crit)" : "var(--invest)") : "var(--ink3)"}">${V.principal ? (V.pl >= 0 ? "+" : "") + won(V.pl) : "—"}</div>
+        <div class="v" style="color:${V.principal ? (V.pl >= 0 ? "var(--up)" : "var(--down)") : "var(--ink3)"}">${V.principal ? (V.pl >= 0 ? "+" : "") + won(V.pl) : "—"}</div>
         <div class="d">${V.principal ? (V.rate * 100).toFixed(1) + "%" : "원금 입력 필요"}</div></div>
     </div>`
         : `<div class="empty card" style="padding:24px">이 달의 투자 기록이 없어요.${ym < nowYm ? `<br><button class="btn sm" data-invest-month="${ym}" style="margin-top:10px">${ymLabel(ym)} 기록 남기기</button>` : ""}</div>`
@@ -4403,7 +4700,7 @@
             <div class="n">${esc(h.name)} <span class="mm" style="font-weight:400">· ${esc(h.acct)}</span></div>
             <div class="v">${won(h.v)}</div>
             <div class="bar"><i style="width:${((h.v / (viewHolds[0].v || 1)) * 100).toFixed(1)}%;background:var(--invest)"></i></div>
-            <div class="delta">${((h.v / (viewHoldTotal || 1)) * 100).toFixed(1)}%${h.cost ? ` · <span style="color:${h.pl >= 0 ? "var(--crit)" : "var(--invest)"}">${h.pl >= 0 ? "+" : ""}${shortWon(h.pl)}</span>` : ""}</div>`;
+            <div class="delta">${((h.v / (viewHoldTotal || 1)) * 100).toFixed(1)}%${h.cost ? ` · <span style="color:${h.pl >= 0 ? "var(--up)" : "var(--down)"}">${h.pl >= 0 ? "+" : ""}${shortWon(h.pl)}</span>` : ""}</div>`;
                     return live
                       ? `<button class="rank" data-asset="${h.aid}" data-hold="${h.hi}" style="width:100%;text-align:left">${inner}</button>`
                       : `<div class="rank">${inner}</div>`;
@@ -4775,16 +5072,29 @@
           }
         }, 200);
       }
-      function toast(msg) {
+      function toast(msg, undo) {
         const t = $("#toast");
         t.hidden = false;
         t.textContent = msg;
+        t.classList.toggle("act", !!undo);
+        /* 되돌릴 수 있는 일(기록·삭제)은 알림에 되돌리기 버튼을 붙이고 조금 더 오래 보여 준다 */
+        if (undo) {
+          const b = document.createElement("button");
+          b.className = "toast-undo";
+          b.textContent = "되돌리기";
+          b.onclick = (e) => {
+            e.stopPropagation();
+            undo();
+            toast("되돌렸어요");
+          };
+          t.appendChild(b);
+        }
         t.classList.add("on");
         clearTimeout(t._t);
         t._t = setTimeout(() => {
           t.classList.remove("on");
           setTimeout(() => (t.hidden = true), 220);
-        }, 1800);
+        }, undo ? 4500 : 1800);
       }
       function catOptionsOfKind(sel, kind) {
         return S.settings.cats
@@ -4833,13 +5143,16 @@
           m: UI.memo.trim(),
           o: UI.kind === "ex" && UI.once,
         });
-        const amt = UI.amount;
+        const amt = UI.amount, saved = S.months[ymOf(UI.date)].items.at(-1);
         UI.amount = 0;
         UI.memo = "";
         UI.once = false;
         UI.month = ymOf(UI.date);
         render();
-        toast(won(amt) + "원 기록했어요");
+        toast(won(amt) + "원 기록했어요", () => {
+          removeItem(ymOf(saved.d), saved.id);
+          render(true);
+        });
       }
       function addAllRecurring() {
         const ym = UI.month,
@@ -4918,10 +5231,14 @@
               toast("수정했어요");
             };
             $("#e_del").onclick = () => {
+              const gone = { ...it };
               removeItem(ym, id);
               closeSheet();
-              render();
-              toast("삭제했어요");
+              render(true);
+              toast("삭제했어요", () => {
+                addItem(gone);
+                render(true);
+              });
             };
           },
         );
@@ -5071,7 +5388,7 @@
                 const v = holdVal(h),
                   c = holdCost(h);
                 $("[data-hv]", el).textContent = won(v);
-                const col = v >= c ? "var(--crit)" : "var(--invest)";
+                const col = v >= c ? "var(--up)" : "var(--down)";
                 const pl = $("[data-hpl]", el);
                 /* 평단가가 없으면 손익 줄은 아예 안 보인다 — 오른쪽 평가금만으로 충분하니까 */
                 pl.innerHTML = c
@@ -5261,11 +5578,16 @@
             $("#a_del") &&
               ($("#a_del").onclick = () => {
                 clearTimeout(holdTimer);
+                const at = S.assets.findIndex((x) => x.id === a.id), gone = S.assets[at];
                 S.assets = S.assets.filter((x) => x.id !== a.id);
                 persist("assets");
                 closeSheet();
-                render();
-                toast("삭제했어요");
+                render(true);
+                toast(`${a.name || "계좌"} 삭제했어요`, () => {
+                  S.assets.splice(Math.max(0, at), 0, gone);
+                  persist("assets");
+                  render(true);
+                });
               });
           },
         );
@@ -6181,6 +6503,14 @@
             localStorage.setItem("jango.trend", d.trange);
           } catch (e) {}
           render(true);
+          return;
+        }
+        if (d.addamt !== undefined) {
+          const n = Number(d.addamt);
+          setAmount(n ? UI.amount + n : 0);
+          /* '지우기' 칩 표시만 바꾼다 — 화면 전체를 다시 그리면 입력 위치가 튄다 */
+          const box = $(".addamts");
+          if (box && !!box.querySelector(".clr") !== !!UI.amount) render(true);
           return;
         }
         if (d.goto) {
