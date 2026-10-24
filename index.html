@@ -2817,9 +2817,10 @@
         return { updated, failed };
       }
 
-      function txRows() {
+      function txRows(onlyYm) {
         const rows = [];
         Object.keys(S.months)
+          .filter((ym) => !onlyYm || ym === onlyYm)
           .sort()
           .forEach((ym) => {
             (S.months[ym].items || []).forEach((it) =>
@@ -2874,21 +2875,39 @@
         return out;
       }
       function settingsPart() {
-        return {
+        const part = {
           cats: S.settings.cats,
           budgets: S.settings.budgets,
           recurring: S.settings.recurring,
           quick: S.settings.quick,
           wealthBaseline: S.settings.wealthBaseline || null,
-          history: S.settings.history || {},
           rec: S.rec || {},
         };
+        /* 설정 탭의 셀 하나는 5만 자까지라 몇십 년 치 월별 자산을 담을 수 없다 */
+        if (!sheetV7()) part.history = S.settings.history || {};
+        return part;
+      }
+      /* 시트 백엔드 v7부터: 월별 자산은 전용 탭에 한 달 한 줄로, 거래는 바뀐 달만 보낸다.
+         그 전 백엔드에는 예전처럼 설정 셀(JSON)과 거래 전체를 보낸다. */
+      function sheetV7() {
+        return (SYNC.ver || 0) >= 7;
       }
       function buildParts(keys) {
         const parts = {};
-        if (keys.some((k) => k.startsWith("month:"))) parts.tx = txRows();
-        if (keys.includes("settings") || keys.includes("rec"))
+        const monthKeys = keys.filter((k) => k.startsWith("month:"));
+        if (monthKeys.length) {
+          if (sheetV7() && !monthKeys.includes("month:*")) {
+            parts.txMonths = {};
+            monthKeys.forEach((k) => {
+              const ym = k.slice("month:".length);
+              parts.txMonths[ym] = txRows(ym);
+            });
+          } else parts.tx = txRows();
+        }
+        if (keys.includes("settings") || keys.includes("rec")) {
           parts.settings = settingsPart();
+          if (sheetV7()) parts.history = S.settings.history || {};
+        }
         if (keys.includes("assets")) {
           parts.assets = assetRows();
           parts.holds = holdRows();
@@ -2977,8 +2996,13 @@
           recurring: d.settings.recurring || [],
           quick: d.settings.quick || SEED_SETTINGS.quick,
           wealthBaseline: d.settings.wealthBaseline || null,
-          /* 다른 기기에서 남긴 달과 이 기기의 달을 합친다 */
-          history: { ...((S.settings && S.settings.history) || {}), ...(d.settings.history || {}) },
+          /* 다른 기기에서 남긴 달과 이 기기의 달을 합친다. v7 시트는 '월별 자산' 탭(d.history)이 원본,
+             그 전에는 설정 셀에 있었다. */
+          history: {
+            ...((S.settings && S.settings.history) || {}),
+            ...(d.settings.history || {}),
+            ...(d.history || {}),
+          },
         };
         S.rec = d.settings.rec || {};
         S.months = d.months || {};
@@ -3049,6 +3073,8 @@
             /* 이전 버전에서 미전송 목록 없이 남은 변경도 이어 올린다. */
             ["month:*", "settings", "assets"].forEach((k) => dirty.add(k));
           }
+          /* v7 백엔드로 바꾼 직후: 설정 셀에 남은 예전 월별 자산을 '월별 자산' 탭으로 옮기고 셀은 비운다 */
+          if (sheetV7() && j.data && j.data.settings && j.data.settings.history) dirty.add("settings");
           S.rev = Math.max(S.rev || 0, serverRev);
           saveLocal();
           SYNC.ready = true;
@@ -4659,7 +4685,12 @@
       <div><div class="t">시트 백엔드가 구버전이에요 (v${SYNC.ver})</div>
       <div class="s">무료 시세·환율 기능을 쓰려면 <b>코드.gs</b>를 다시 붙여넣고
         배포 관리 → 연필 → 버전: <b>새 버전</b> → 배포 하세요.</div></div></div>`
-        : ""
+        : SYNC.url && SYNC.ver && SYNC.ver < 7
+          ? `<div class="banner" style="margin-top:10px">
+      <div><div class="t">장기 보관용 백엔드 v7이 나왔어요 (지금 v${SYNC.ver})</div>
+      <div class="s">월별 자산을 전용 탭에 한 달 한 줄로 쌓고, 거래는 바뀐 달만 올려서 몇 년이 지나도 저장이 느려지지 않아요.
+        <b>코드.gs</b>를 다시 붙여넣고 배포 관리 → 연필 → 버전: <b>새 버전</b> → 배포 하세요. 지금도 동기화는 정상이에요.</div></div></div>`
+          : ""
     }
     ${SYNC.url ? "" : `<div class="note" style="margin-top:8px">연결하지 않으면 이 브라우저에만 저장돼요. 폰과 PC가 따로 놉니다.</div>`}
     </div>
