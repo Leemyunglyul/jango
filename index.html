@@ -372,7 +372,12 @@
         min-width: 0;
       }
       .setgrid {
-        display: block;
+        display: flex;
+        flex-direction: column;
+      }
+      /* 좁은 화면: 열을 풀어 블록이 order대로 한 줄로 흐른다 */
+      .setcol {
+        display: contents;
       }
       .assetgrid {
         display: block;
@@ -1582,6 +1587,45 @@
           grid-template-columns: 1fr 1fr;
           gap: 0 28px;
           align-items: start;
+        }
+        .setcol {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+        /* 예산·분류처럼 긴 목록은 카드 안에서 두 칸씩 — 높이가 절반이 된다 */
+        .setgrid .rows2 {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .setgrid .rows2 > .row {
+          min-width: 0;
+          padding: 14px 16px;
+          gap: 10px;
+        }
+        /* 두 칸 목록은 큰 아이콘 대신 작은 색 점, '수정' 글자도 뺀다(줄 전체가 버튼) — 이름이 잘리지 않게 */
+        .setgrid .rows2 .row > .dot {
+          width: 10px;
+          height: 10px;
+        }
+        .setgrid .rows2 .row > .dot::before,
+        .setgrid .rows2 .row > .dot::after {
+          display: none;
+        }
+        .setgrid .rows2 .row > .mm:last-child {
+          display: none;
+        }
+        .setgrid .rows2 .row .nm {
+          font-size: 15px;
+        }
+        .setgrid .rows2 .row .grow .mm {
+          display: block;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .setcol {
+          gap: 4px;
         }
         .assetgrid {
           display: grid;
@@ -4890,9 +4934,11 @@
         const rec = S.settings.recurring,
           buds = S.settings.budgets;
         const exCats = S.settings.cats.filter((c) => c.kind === "ex");
-        return `<section>
-   <div class="setgrid">
-    <div class="setblk">
+        /* 블록 길이가 제각각이라(예산·분류는 길고 고정비·퀵버튼은 짧다) 2열 그리드에 두 개씩 묶으면
+           짧은 쪽 아래가 크게 빈다. 대신 순서대로 지금 더 짧은 열에 넣어 두 열 높이를 맞춘다.
+           무게는 대략 줄 수(머리글·안내 포함). 좁은 화면에서는 열을 풀고 order로 원래 순서를 지킨다. */
+        const blocks = [
+          [rec.length + 1 + 0.75, `
     <h2 class="sec">고정비 (매달 자동 제안)</h2>
     <div class="card rows">
       ${rec
@@ -4905,11 +4951,10 @@
         .join("")}
       <button class="row" id="addRec" style="color:var(--ink2)"><span class="grow">＋ 고정비 추가</span></button>
     </div>
-    </div>
-
-    <div class="setblk">
+    `],
+          [Math.ceil(exCats.length / 2) + 0.75 + 0.5, `
     <h2 class="sec">예산</h2>
-    <div class="card rows">
+    <div class="card rows rows2">
       ${exCats
         .map(
           (c) => `<button class="row" data-bud="${c.id}">
@@ -4920,24 +4965,22 @@
         .join("")}
     </div>
     <div class="note" style="margin-top:8px">초기값은 8월 실제 지출을 보고 넣어둔 값이에요. 눌러서 바꾸세요.</div>
-    </div>
-
-    <div class="setblk">
+    `],
+          [Math.ceil((S.settings.cats.length + 1) / 2) + 0.75, `
     <h2 class="sec">분류</h2>
-    <div class="card rows">
+    <div class="card rows rows2">
       ${S.settings.cats
         .map(
           (c) => `<button class="row" data-cate="${c.id}">
         <span class="dot" style="background:${catColor(c)}"></span>
-        <span class="grow"><span class="nm">${esc(c.name)}</span> <span class="mm">${c.kind === "in" ? (c.deduct ? "수입 · 지출에서 차감" : "수입") : "지출"}</span></span>
+        <span class="grow"><span class="nm">${esc(c.name)}</span> <span class="mm">${c.kind === "in" ? (c.deduct ? "수입 · 지출에서 차감" : "수입") : c.kind === "inv" ? "투자 · 수입·지출 제외" : "지출"}</span></span>
         <span class="mm">수정</span></button>`,
         )
         .join("")}
       <button class="row" id="addCat" style="color:var(--ink2)"><span class="grow">＋ 분류 추가</span></button>
     </div>
-    </div>
-
-    <div class="setblk">
+    `],
+          [S.settings.quick.length + 1 + 0.75, `
     <h2 class="sec">퀵버튼</h2>
     <div class="card rows">
       ${S.settings.quick
@@ -4949,9 +4992,8 @@
         .join("")}
       <button class="row" id="addQuick" style="color:var(--ink2)"><span class="grow">＋ 퀵버튼 추가</span></button>
     </div>
-    </div>
-
-    <div class="setblk">
+    `],
+          [(SYNC.url ? 5 : 1) + 0.75 + 0.5 + (SYNC.stale || (SYNC.url && SYNC.ver && SYNC.ver < 7) ? 1.5 : 0), `
     <h2 class="sec">동기화</h2>
     ${SYNC.url ? '<div class="note" style="margin-bottom:10px">자동 업로드가 켜져 있어요. 변경 후 약 1초 뒤 시트에 전송하며, 실패한 변경은 보관했다가 다시 시도해요.</div>' : ""}
     <div class="card rows">
@@ -4990,9 +5032,8 @@
           : ""
     }
     ${SYNC.url ? "" : `<div class="note" style="margin-top:8px">연결하지 않으면 이 브라우저에만 저장돼요. 폰과 PC가 따로 놉니다.</div>`}
-    </div>
-
-    <div class="setblk">
+    `],
+          [4 + 0.75, `
     <h2 class="sec">가져오기 · 내보내기</h2>
     <div class="card rows">
       <button class="row" id="doImport"><span class="grow"><span class="nm">CSV 가져오기</span> <span class="mm">엑셀 표를 그대로 붙여넣기</span></span><span class="mm">›</span></button>
@@ -5000,15 +5041,24 @@
       <button class="row" id="expCsv"><span class="grow"><span class="nm">전체 CSV로 내보내기</span> <span class="mm">거래 내역 한 장</span></span><span class="mm">›</span></button>
       <button class="row" id="expJson"><span class="grow"><span class="nm">백업 파일(JSON)</span> <span class="mm">그대로 되돌릴 수 있는 원본</span></span><span class="mm">›</span></button>
     </div>
-    </div>
-
-    <div class="setblk">
+    `],
+          [1 + 0.75 + 0.5, `
     <h2 class="sec">데이터</h2>
     <div class="card rows">
       <button class="row" id="resetAll" style="color:var(--crit)"><span class="grow">전체 초기화</span></button>
     </div>
     <div class="note" style="margin:10px 0 30px">기록은 이 링크에 저장돼요. 같은 계정으로 폰·PC 어디서 열어도 같은 데이터가 보입니다.</div>
-    </div>
+    `],
+        ];
+        const cols = [[], []], heights = [0, 0];
+        blocks.forEach(([weight, html], i) => {
+          const c = heights[0] <= heights[1] ? 0 : 1;
+          cols[c].push(`<div class="setblk" style="order:${i}">${html}</div>`);
+          heights[c] += weight;
+        });
+        return `<section>
+   <div class="setgrid">
+    ${cols.map((c) => `<div class="setcol">${c.join("")}</div>`).join("")}
    </div>
   </section>`;
       }
