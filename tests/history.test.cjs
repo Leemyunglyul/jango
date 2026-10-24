@@ -29,6 +29,7 @@ function harness({ today = '2026-10-24', live, investMonths = {}, history } = {}
     const shortWon = won;
     const investTotals = () => liveTotals;
     const investmentHoldingSnapshot = () => [];
+    const monthItems = (ym) => (S.months && S.months[ym] && S.months[ym].items) || [];
     ${code}
   `, ctx);
   return (src) => vm.runInContext(src, ctx);
@@ -91,4 +92,40 @@ test('the trend strip keeps the recent window fixed and compares the selected mo
   const older = run(`trendStrip({ title: 't', get: () => null, color: 'red' })`);
   assert.deepEqual([...older.matchAll(/data-goto="([^"]+)"/g)].map((m) => m[1]).at(-1), '2026-03');
   assert.match(older, /이 달 기록 없음/);
+});
+
+const cols = (markup) => [...markup.matchAll(/data-goto="([^"]+)"[^>]*aria-label="([^ "]+) ([^"]+)"/g)].map((m) => [m[1], m[2], m[3]]);
+
+test('the 3-year range shows 36 monthly bars and labels only years and quarter starts', () => {
+  const run = harness();
+  run(`UI.trendRange = '3y';`);
+  const markup = run(`trendStrip({ title: 't', get: () => 1, color: 'red' })`);
+  const bars = cols(markup);
+  assert.equal(bars.length, 36);
+  assert.equal(bars[0][0], '2023-11');
+  assert.equal(bars.at(-1)[0], '2026-10');
+  assert.match(markup, /<span class="tm">24년<\/span>/);
+  assert.match(markup, /class="card trend dense"/);
+  assert.match(markup, /data-trange="3y" aria-pressed="true"/);
+});
+
+test('yearly view sums flows, keeps year-end balances, and compares this year with the same months last year', () => {
+  const flow = { '2024-03': 100, '2024-11': 50, '2025-02': 70, '2025-10': 30, '2025-12': 500, '2026-01': 40, '2026-09': 60 };
+  const run = harness({ investMonths: { '2024-03': {} } });
+  run(`UI.trendRange = 'yr';`);
+  const markup = run(`trendStrip({ title: 't', get: (m) => (${JSON.stringify(flow)})[m] ?? null, color: 'red' })`);
+  assert.deepEqual(cols(markup).map((c) => [c[0], c[2]]), [['2024-12', '150원'], ['2025-12', '600원'], ['2026-10', '100원']]);
+  /* 2026년 1~10월(100) vs 2025년 1~10월(100) */
+  assert.match(markup, /2026년 1~10월/);
+  assert.match(markup, /±0 \(▲0\.0%\)<\/span><span class="mm">작년 같은 기간 대비/);
+
+  const stock = { '2024-06': 1000, '2024-12': 1200, '2025-05': 1500, '2025-12': 1800, '2026-08': 2100 };
+  const st = run(`trendStrip({ title: 't', get: (m) => (${JSON.stringify(stock)})[m] ?? null, color: 'red', kind: 'stock' })`);
+  assert.deepEqual(cols(st).map((c) => c[2]), ['1200원', '1800원', '2100원']);
+  assert.match(st, /\+300 \(▲16\.7%\)<\/span><span class="mm">작년 말 대비/);
+
+  run(`UI.month = '2025-04';`);
+  const past = run(`trendStrip({ title: 't', get: (m) => (${JSON.stringify(flow)})[m] ?? null, color: 'red' })`);
+  assert.match(past, /data-goto="2025-12" aria-current="true"/);
+  assert.match(past, /\+450 \(▲300\.0%\)<\/span><span class="mm">작년 대비/);
 });
