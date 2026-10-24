@@ -26,7 +26,7 @@ function harness() {
     function esc(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
     function won(value) { return String(value); }
     ${section(html, 'const BUILTIN_QUOTE_SYMBOLS', 'function seed()')}
-    ${section(html, 'function quoteSymbols', 'function txRows()')}
+    ${section(html, 'function quoteSymbols', 'function txRows(')}
     ${section(html, 'function quoteMetaHtml', 'function holdListHtml')}
   `, context);
   return { context, run: (code) => vm.runInContext(code, context) };
