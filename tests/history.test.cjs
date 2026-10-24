@@ -11,7 +11,7 @@ function section(start, end) {
   assert.ok(from >= 0 && to > from, `Missing source section: ${start}`);
   return html.slice(from, to);
 }
-const code = section('function captureHistory()', 'function wealthGrowthHtml(');
+const code = section('function captureHistory()', '/* 모든 계좌의 종목을 하나로 모아 비중 계산 */');
 
 function harness({ today = '2026-10-24', live, investMonths = {}, history } = {}) {
   const ctx = vm.createContext({ structuredClone });
@@ -96,17 +96,28 @@ test('the trend strip keeps the recent window fixed and compares the selected mo
 
 const cols = (markup) => [...markup.matchAll(/data-goto="([^"]+)"[^>]*aria-label="([^ "]+) ([^"]+)"/g)].map((m) => [m[1], m[2], m[3]]);
 
-test('the 3-year range shows 36 monthly bars and labels only years and quarter starts', () => {
+test('long ranges drop per-bar numbers, label at most six months, and summarize the period in text', () => {
   const run = harness();
   run(`UI.trendRange = '3y';`);
-  const markup = run(`trendStrip({ title: 't', get: () => 1, color: 'red' })`);
+  const markup = run(`trendStrip({ title: 't', get: (m) => m >= '2024-01' ? Number(m.slice(2, 4)) * 100 + Number(m.slice(5)) : null, color: 'red', kind: 'stock' })`);
   const bars = cols(markup);
   assert.equal(bars.length, 36);
   assert.equal(bars[0][0], '2023-11');
   assert.equal(bars.at(-1)[0], '2026-10');
-  assert.match(markup, /<span class="tm">24년<\/span>/);
+  assert.doesNotMatch(markup, /class="tval/);
+  const labels = [...markup.matchAll(/<span class="tm"><span>([^<]*)<\/span>/g)].map((m) => m[1]).filter(Boolean);
+  assert.deepEqual(labels, ['24.04', '24.10', '25.04', '25.10', '26.04', '26.10']);
   assert.match(markup, /class="card trend dense"/);
   assert.match(markup, /data-trange="3y" aria-pressed="true"/);
+  /* 2024.01(2401) → 2026.10(2610) */
+  assert.match(markup, /<em>기간 변화<\/em><b[^>]*>\+209 \(▲8\.7%\)<\/b><small>2024\.01 → 2026\.10<\/small>/);
+  assert.match(markup, /<em>최고<\/em><b>2610<\/b><small>2026\.10<\/small>/);
+  assert.match(markup, /<em>최저<\/em><b>2401<\/b><small>2024\.01<\/small>/);
+
+  run(`UI.trendRange = '6m';`);
+  const short = run(`trendStrip({ title: 't', get: () => 5, color: 'red' })`);
+  assert.equal((short.match(/class="tval/g) || []).length, 6);
+  assert.match(short, /<em>월평균<\/em><b>5<\/b>/);
 });
 
 test('yearly view sums flows, keeps year-end balances, and compares this year with the same months last year', () => {
