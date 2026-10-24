@@ -2179,6 +2179,23 @@
       .toast.act { display: flex; align-items: center; gap: 14px; pointer-events: auto; padding: 10px 10px 10px 18px; }
       .toast-undo { color: #8ec1ff; font-weight: 700; padding: 4px 8px; border-radius: 8px; }
       .toast-undo:hover { background: #ffffff14; }
+      /* 통계 → 분류 내역 시트 */
+      button.bud { display: block; width: 100%; text-align: left; }
+      button.bud:hover, button.rank:hover { background: var(--surface2); }
+      .catsum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 4px 0 12px; }
+      .catsum > div { background: var(--surface2); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+      .catsum span { display: block; font-size: 12px; color: var(--ink3); font-weight: 600; }
+      .catsum strong { display: block; margin-top: 4px; font-size: 17px; font-weight: 700; letter-spacing: -0.03em; white-space: nowrap; }
+      .catsum strong small { font-size: 12px; font-weight: 600; color: var(--ink3); margin-left: 2px; }
+      .catbud { margin: 0 0 12px; }
+      .catbud .track { margin-bottom: 6px; }
+      .catbud span { font-size: 12.5px; color: var(--ink2); }
+      .catoften { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 12px; }
+      .catoften .k { font-size: 12px; color: var(--ink3); font-weight: 600; margin-right: 2px; }
+      .catoften .chip { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 5px 10px; font-size: 12.5px; font-weight: 600; }
+      .catoften .chip b { font-weight: 700; }
+      .sheet .catlist { background: var(--surface); box-shadow: none; border: 1px solid var(--line-soft); }
+      .sheet .catlist .row { min-height: 60px; padding: 12px 16px; }
       @media (min-width: 920px) {
         /* 왼쪽 메뉴: 흰 카드 */
         nav.tabs { background: var(--surface); border: 0; box-shadow: var(--shadow); }
@@ -4275,13 +4292,13 @@
             : 1;
         const st = r > 1 ? "crit" : r > pace * 0.9 ? "warn" : "good";
         const stName = r > 1 ? "초과" : r > pace * 0.9 ? "빠름" : "여유";
-        return `<div class="bud"><div class="top"><span class="n">${esc(c.name)}</span>
+        return `<button class="bud" data-catmonth="${b.cid}"><div class="top"><span class="n">${esc(c.name)}</span>
         <span class="pill ${st}">${stName}</span>
         <span class="r">${won(b.used)} / ${won(b.limit)}</span></div>
-        <div class="track"><i style="width:${Math.min(100, r * 100).toFixed(1)}%;background:var(--${st === "crit" ? "crit" : st === "warn" ? "warn" : "good"})"></i></div></div>`;
+        <div class="track"><i style="width:${Math.min(100, r * 100).toFixed(1)}%;background:var(--${st === "crit" ? "crit" : st === "warn" ? "warn" : "good"})"></i></div></button>`;
       })
       .join("")}</div>
-    <div class="note" style="margin-top:8px">예산은 설정 탭에서 바꿀 수 있어요.</div>`
+    <div class="note" style="margin-top:8px">누르면 그 달 지출 내역이 보여요. 예산은 설정 탭에서 바꿀 수 있어요.</div>`
         : ""
     }
     </div><div class="colB">
@@ -4292,16 +4309,16 @@
             .map(([cid, v]) => {
               const c = catById(cid),
                 p = prev.byCat[cid] || 0;
-              return `<div class="rank">
+              return `<button class="rank" data-catmonth="${cid}">
         <div class="n">${esc(c.name)}</div><div class="v">${won(v)}</div>
         <div class="bar"><i style="width:${((v / maxRank) * 100).toFixed(1)}%"></i></div>
         <div class="delta ${v > p ? "up" : v < p ? "down" : ""}">${p ? (v > p ? "▲" : "▼") + won(Math.abs(v - p)) : "신규"}</div>
-      </div>`;
+      </button>`;
             })
             .join("")
         : `<div class="empty">지출 기록이 없어요.</div>`
     }</div>
-    <div class="note" style="margin-top:8px">오른쪽 숫자는 ${ymLabel(shiftYM(ym, -1))} 대비 증감이에요.</div>
+    <div class="note" style="margin-top:8px">오른쪽 숫자는 ${ymLabel(shiftYM(ym, -1))} 대비 증감이에요. 분류를 누르면 그 달 지출 내역이 보여요.</div>
     </div></div>
 
     <h2 class="sec">월별 흐름</h2>
@@ -5219,6 +5236,67 @@
         );
         render();
         toast(miss.length + "건 넣었어요");
+      }
+      /* 통계에서 분류를 누르면 — 그 달 그 분류에 쓴 기록을 메모 중심으로 보여 준다 */
+      function openCatMonthSheet(cid, ym) {
+        const c = catById(cid);
+        const items = monthItems(ym)
+          .filter((it) => it.c === cid && it.k === "ex")
+          .sort((a, b) => b.d.localeCompare(a.d) || String(b.id).localeCompare(String(a.id)));
+        const total = items.reduce((sum, it) => sum + it.a, 0);
+        const prevTotal = summarize(shiftYM(ym, -1)).byCat[cid] || 0;
+        const limit = S.settings.budgets[cid] || 0;
+        /* 같은 메모가 두 번 이상이면 묶어서 보여 준다 (예: 편의점 4번 · 12,300원) */
+        const memoMap = {};
+        items.forEach((it) => {
+          const m = (it.m || "").trim();
+          if (!m) return;
+          (memoMap[m] = memoMap[m] || { m, n: 0, a: 0 }).n++;
+          memoMap[m].a += it.a;
+        });
+        const often = Object.values(memoMap)
+          .filter((x) => x.n > 1)
+          .sort((a, b) => b.n - a.n || b.a - a.a)
+          .slice(0, 5);
+        const d = total - prevTotal;
+        const dayName = (iso) => {
+          const dt = new Date(iso + "T00:00:00");
+          return `${Number(iso.slice(5, 7))}월 ${Number(iso.slice(8, 10))}일 ${dowKo[dt.getDay()]}요일`;
+        };
+        openSheet(
+          `<h3><span class="dot" style="display:inline-block;width:10px;height:10px;margin-right:8px;vertical-align:2px;background:${catColor(c)}"></span>${esc(c.name)} <span class="mm" style="font-weight:500">· ${ymLabel(ym)}</span></h3>
+    <div class="catsum">
+      <div><span>쓴 돈</span><strong>${won(total)}<small>원</small></strong></div>
+      <div><span>건수</span><strong>${items.length}<small>건</small></strong></div>
+      <div><span>지난달 대비</span><strong style="color:${!prevTotal || !d ? "var(--ink)" : d > 0 ? "var(--crit)" : "var(--good)"}">${prevTotal ? `${d > 0 ? "+" : d < 0 ? "−" : "±"}${shortWon(Math.abs(d))}` : "—"}</strong></div>
+    </div>
+    ${
+      limit
+        ? `<div class="catbud"><div class="track"><i style="width:${Math.min(100, (total / limit) * 100).toFixed(1)}%;background:var(--${total > limit ? "crit" : "accent"})"></i></div>
+      <span>예산 ${won(limit)}원 중 ${Math.round((total / limit) * 100)}% · ${total > limit ? `${won(total - limit)}원 초과` : `${won(limit - total)}원 남음`}</span></div>`
+        : ""
+    }
+    ${
+      often.length
+        ? `<div class="catoften"><span class="k">자주 적은 메모</span>${often
+            .map((x) => `<span class="chip">${esc(x.m)} <b>${x.n}번</b> · ${won(x.a)}원</span>`)
+            .join("")}</div>`
+        : ""
+    }
+    <div class="card rows catlist">${
+      items.length
+        ? items
+            .map(
+              (it) => `<button class="row" data-item="${it.id}" data-ym="${ym}">
+        <span class="grow"><span class="nm" style="${it.m ? "" : "color:var(--ink3);font-weight:500"}">${it.m ? esc(it.m) : "메모 없음"}</span>
+          <span class="mm" style="display:block">${dayName(it.d)}${it.o ? " · 일회성" : ""}</span></span>
+        <span class="amt num">${won(it.a)}</span></button>`,
+            )
+            .join("")
+        : `<div class="empty" style="padding:20px">${ymLabel(ym)}에는 ${esc(c.name)} 지출이 없어요.</div>`
+    }</div>
+    <div class="note" style="margin-top:10px">기록을 누르면 바로 고칠 수 있어요.</div>`,
+        );
       }
       function openItemSheet(ym, id) {
         const it = (S.months[ym] || { items: [] }).items.find(
@@ -6519,6 +6597,10 @@
         /* 내역 */
         if (d.item) {
           openItemSheet(d.ym, d.item);
+          return;
+        }
+        if (d.catmonth) {
+          openCatMonthSheet(d.catmonth, UI.month);
           return;
         }
         if (d.filter) {
