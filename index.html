@@ -2037,6 +2037,8 @@
         { id: "bonus", name: "보너스·현금", kind: "in" },
         { id: "earn", name: "적립·할인·이자", kind: "in", deduct: true },
         { id: "etcin", name: "기타 수입", kind: "in" },
+        /* kind "inv" — 월급에서 투자 계좌로 옮긴 돈. 수입도 지출도 아니다. */
+        { id: "invest", name: "투자 납입", kind: "inv" },
         { id: "food", name: "식비", kind: "ex" },
         { id: "conv", name: "편의점·카페", kind: "ex" },
         { id: "daily", name: "생필품", kind: "ex" },
@@ -2445,6 +2447,41 @@
         recalcInvestmentMonths();
         S.v = DATA_VERSION;
         return true;
+      }
+      /* 투자 분류·거래 종류를 맞춘다. 예전에는 투자로 보낸 돈을 '수입'이나 직접 만든
+         '투자' 수입 분류로 한 번 더 적어서 들어온 돈이 부풀었다. 그런 분류를 투자 종류로
+         옮기고, 거래의 k는 분류 종류를 따르게 한다. 바뀐 저장 키 목록을 돌려준다. */
+      function normalizeLedgerKinds() {
+        const keys = new Set();
+        const cats = (S.settings && S.settings.cats) || [];
+        if (!cats.some((c) => c.kind === "inv")) {
+          /* 투자 분류가 하나도 없을 때(=이 기능 이전 데이터)만 이름으로 옮긴다.
+             한 번 옮기면 투자 분류가 생기므로 나중에 만든 '투자수익' 같은 수입은 건드리지 않는다. */
+          cats.forEach((c) => {
+            if (c.kind === "in" && !c.deduct && /투자/.test(c.name) && !/수익|배당|이자|환급/.test(c.name)) {
+              c.kind = "inv";
+              keys.add("settings");
+            }
+          });
+          if (!cats.some((c) => c.kind === "inv")) {
+            const id = cats.some((c) => c.id === "invest") ? "invest_" + uid() : "invest";
+            cats.push({ id, name: "투자 납입", kind: "inv" });
+            keys.add("settings");
+          }
+        }
+        Object.keys(S.months || {}).forEach((ym) => {
+          (S.months[ym].items || []).forEach((it) => {
+            const c = cats.find((x) => x.id === it.c);
+            if (!c) return;
+            const k = kindOfCat(c);
+            if (it.k !== k) {
+              it.k = k;
+              if (k !== "ex") delete it.o;
+              keys.add("month:" + ym);
+            }
+          });
+        });
+        return [...keys];
       }
       function seed() {
         return {
@@ -2907,6 +2944,8 @@
         recalcInvestmentMonths();
         S.rev = rev || 0;
         if (migrate()) persist("assets", "investMonths");
+        const ledgerKeys = normalizeLedgerKinds();
+        if (ledgerKeys.length) persist(...ledgerKeys);
         saveLocal();
         return true;
       }
@@ -3013,6 +3052,8 @@
               S.months[d.id] = d.data();
             });
             if (migrate()) persist("assets", "investMonths");
+            const ledgerKeys = normalizeLedgerKinds();
+            if (ledgerKeys.length) persist(...ledgerKeys);
             saveLocal();
           } else {
             dirty.add("settings");
@@ -3035,11 +3076,19 @@
           kind: "ex",
         };
       const catColor = (c) =>
-        c.kind === "in"
-          ? c.deduct
-            ? "var(--invest)"
-            : "var(--accent)"
-          : "var(--expense)";
+        c.kind === "inv"
+          ? "var(--invest)"
+          : c.kind === "in"
+            ? c.deduct
+              ? "var(--invest)"
+              : "var(--accent)"
+            : "var(--expense)";
+      const KIND_LABEL = { ex: "지출", in: "수입", inv: "투자" };
+      const kindLabel = (k) => KIND_LABEL[k] || "지출";
+      const kindColor = (k) =>
+        k === "in" ? "var(--accent)" : k === "inv" ? "var(--invest)" : "var(--ink)";
+      /* 거래의 종류는 분류가 정한다 — 투자 분류에 들어간 기록은 항상 투자다. */
+      const kindOfCat = (c) => (c && (c.kind === "in" || c.kind === "inv") ? c.kind : "ex");
       const monthItems = (ym) => (S.months[ym] && S.months[ym].items) || [];
 
       function summarize(ym) {
@@ -3047,13 +3096,19 @@
         let income = 0,
           gross = 0,
           deduct = 0,
+          invest = 0,
+          investCount = 0,
           once = 0,
           fixedSpent = 0;
         const byCat = {};
         const fixedCats = new Set(S.settings.recurring.map((r) => r.cat));
         items.forEach((it) => {
           const c = catById(it.c);
-          if (it.k === "in") {
+          if (it.k === "inv") {
+            /* 이미 수입으로 잡힌 월급을 투자 계좌로 옮긴 것 — 수입·지출 어디에도 더하지 않는다 */
+            invest += it.a;
+            investCount++;
+          } else if (it.k === "in") {
             if (c.deduct) deduct += it.a;
             else income += it.a;
           } else {
@@ -3069,11 +3124,15 @@
           gross,
           deduct,
           net,
+          invest,
+          investCount,
           once,
           fixedSpent,
           byCat,
           living: Math.max(0, net - once),
-          left: income - net,
+          /* saved = 쓰지 않은 돈(투자 포함), left = 투자까지 보내고 손에 남은 돈 */
+          saved: income - net,
+          left: income - net - invest,
           count: items.length,
         };
       }
@@ -3342,10 +3401,8 @@
       /* ============================== 화면: 기록 ============================== */
       function viewRecord() {
         const s = summarize(UI.month);
-        const cats = S.settings.cats.filter((c) =>
-          UI.kind === "in" ? c.kind === "in" : c.kind === "ex",
-        );
-        if (!cats.some((c) => c.id === UI.cat)) UI.cat = cats[0].id;
+        const cats = S.settings.cats.filter((c) => kindOfCat(c) === UI.kind);
+        if (!cats.some((c) => c.id === UI.cat) && cats.length) UI.cat = cats[0].id;
         const recent = monthItems(UI.month)
           .slice()
           .sort((a, b) => (b.d + b.id).localeCompare(a.d + a.id))
@@ -3358,15 +3415,16 @@
    <div class="cols cols-rec">
     <div class="colA">
     <div class="amount-stage">
-      <div class="kindtoggle" role="group" aria-label="수입/지출">
+      <div class="kindtoggle" role="group" aria-label="지출/수입/투자">
         <button data-kind="ex" aria-pressed="${UI.kind === "ex"}">지출</button>
         <button data-kind="in" aria-pressed="${UI.kind === "in"}">수입</button>
+        <button data-kind="inv" aria-pressed="${UI.kind === "inv"}">투자</button>
       </div>
       <label class="bigamt" for="amt">
         <input id="amt" class="amtinput" type="text" inputmode="numeric" autocomplete="off"
                enterkeyhint="done" placeholder="0" aria-label="금액"
                value="${UI.amount ? won(UI.amount) : ""}"
-               style="color:${UI.amount ? (UI.kind === "in" ? "var(--accent)" : "var(--ink)") : "var(--ink3)"}">
+               style="color:${UI.amount ? kindColor(UI.kind) : "var(--ink3)"}">
         <span class="w">원</span>
       </label>
       <div class="datepick">
@@ -3384,12 +3442,23 @@
         : ""
     }
 
-    <div class="quicks">
+    ${
+      UI.kind === "inv"
+        ? `<div class="note" style="margin:0 0 14px">월급(수입)에서 투자 계좌로 옮긴 돈을 적어요. <b>수입·지출에는 잡히지 않고</b>
+      이번 달 남은 돈에서만 빠지며, 투자 탭 월별 기록의 <b>당월 납입액</b>으로 자동 합산돼요.</div>`
+        : ""
+    }
+    ${
+      UI.kind === "inv"
+        ? ""
+        : `<div class="quicks">
       ${S.settings.quick.map((q, i) => `<button class="quick" data-quick="${i}">${esc(q.label)} <b>${won(q.amount)}</b></button>`).join("")}
       <button class="quick" data-quick="edit" style="color:var(--ink3)">＋ 편집</button>
-    </div>
+    </div>`
+    }
 
     <h2 class="sec">분류</h2>
+    ${cats.length ? "" : `<div class="empty">${kindLabel(UI.kind)} 분류가 없어요.<br>설정 → 분류에서 하나 추가해 주세요.</div>`}
     <div class="catgrid">
       ${cats
         .map(
@@ -3404,7 +3473,7 @@
     <div class="kbdhint">
       <span><kbd>Enter</kbd> 기록</span>
       <span><kbd>M</kbd> 메모</span>
-      <span><kbd>T</kbd> 지출·수입</span>
+      <span><kbd>T</kbd> 지출·수입·투자</span>
       <span><kbd>[</kbd><kbd>]</kbd> 달 이동</span>
     </div>
 
@@ -3426,10 +3495,11 @@
     <div class="balance-card">
       <div class="balance-label">이번 달 남은 돈</div>
       <div class="balance-value">${won(s.left)}<small>원</small></div>
-      <div class="balance-note">기록한 수입에서 지출을 뺀 금액이에요</div>
+      <div class="balance-note">${s.invest ? "기록한 수입에서 지출과 투자로 보낸 돈을 뺀 금액이에요" : "기록한 수입에서 지출을 뺀 금액이에요"}</div>
       <div class="balance-foot">
         <div><span>들어온 돈</span><strong>${won(s.income)}<small> 원</small></strong></div>
         <div><span>나간 돈${s.deduct ? " · 적립 차감" : ""}</span><strong>${won(s.net)}<small> 원</small></strong></div>
+        ${s.invest ? `<div><span>투자로 보낸 돈</span><strong style="color:var(--invest)">${won(s.invest)}<small> 원</small></strong></div>` : ""}
       </div>
     </div>
 
@@ -3456,11 +3526,7 @@
         if (el) {
           const s = UI.amount ? won(UI.amount) : "";
           if (el.value !== s) el.value = s;
-          el.style.color = UI.amount
-            ? UI.kind === "in"
-              ? "var(--accent)"
-              : "var(--ink)"
-            : "var(--ink3)";
+          el.style.color = UI.amount ? kindColor(UI.kind) : "var(--ink3)";
         }
         const sb = $("#saveTx");
         if (sb) {
@@ -3477,7 +3543,8 @@
     <span class="dot" style="background:${catColor(c)}"></span>
     <span class="grow"><span class="nm">${esc(c.name)}</span>${it.m ? ` <span class="mm">${esc(it.m)}</span>` : ""}</span>
     ${it.o ? `<span class="tag once">일회성</span>` : ""}
-    <span class="amt num" style="color:${it.k === "in" ? "var(--accent)" : "var(--ink)"}">${it.k === "in" ? "+" : ""}${won(it.a)}</span>
+    ${it.k === "inv" ? `<span class="tag">투자</span>` : ""}
+    <span class="amt num" style="color:${kindColor(it.k)}">${it.k === "in" ? "+" : it.k === "inv" ? "→" : ""}${won(it.a)}</span>
   </button>`;
       }
 
@@ -3505,7 +3572,8 @@
     <div class="tiles">
       <div class="tile"><div class="k">수입</div><div class="v" style="color:var(--accent)">${won(s.income)}</div></div>
       <div class="tile"><div class="k">지출</div><div class="v" style="color:var(--expense)">${won(s.net)}</div></div>
-      <div class="tile"><div class="k">건수</div><div class="v">${s.count}</div></div>
+      <div class="tile"><div class="k">투자로 보냄</div><div class="v" style="color:var(--invest)">${won(s.invest)}</div>
+        <div class="d">${s.count}건 기록 · 투자는 수입·지출 제외</div></div>
     </div>
     ${
       miss.length
@@ -3521,6 +3589,7 @@
         ["all", "전체"],
         ["ex", "지출"],
         ["in", "수입"],
+        ["inv", "투자"],
         ["once", "일회성"],
       ]
         .map(
@@ -3584,8 +3653,8 @@
       <div class="tile"><div class="k">수입</div><div class="v" style="color:var(--accent)">${won(s.income)}</div></div>
       <div class="tile"><div class="k">지출</div><div class="v" style="color:var(--expense)">${won(s.net)}</div>
         <div class="d">${prev.net ? `<span class="${s.net > prev.net ? "up" : "down"}">${s.net > prev.net ? "▲" : "▼"}${shortWon(Math.abs(s.net - prev.net))}</span> 지난달` : "&nbsp;"}</div></div>
-      <div class="tile"><div class="k">저축 여력</div><div class="v">${won(s.left)}</div>
-        <div class="d">${s.income ? Math.round((s.left / s.income) * 100) + "% 남김" : "&nbsp;"}</div></div>
+      <div class="tile"><div class="k">저축 여력</div><div class="v">${won(s.saved)}</div>
+        <div class="d">${s.income ? Math.round((s.saved / s.income) * 100) + "% 남김" : "&nbsp;"}${s.invest ? ` · 투자 ${shortWon(s.invest)}` : ""}</div></div>
     </div>
 
     ${
@@ -3867,7 +3936,7 @@
           const live = {
             m: nowYm,
             live: true,
-            ...buildInvestmentRecord(nowYm, { contrib: t.contrib }),
+            ...buildInvestmentRecord(nowYm, { contrib: ledgerInvest(nowYm) || t.contrib }),
           };
           const prev = rows[rows.length - 1];
           if (prev) {
@@ -4003,7 +4072,8 @@
     </div>
     <div class="note" style="margin-top:8px"><b>시장손익</b>은 평가액 증감에서 납입을 빼고 인출을 더한 값입니다.
       월수익률은 월중 입출금이 중간에 있었다고 가정한 간이 수익률이에요.
-      보유종목·수량·가격도 월 기록을 저장한 시점 그대로 함께 보관됩니다.</div>
+      보유종목·수량·가격도 월 기록을 저장한 시점 그대로 함께 보관됩니다.
+      <b>납입</b>은 기록 탭에서 <b>투자</b>로 적은 돈이 자동으로 합산돼요 — 월급을 수입으로 적었다면 투자금을 수입으로 다시 적지 마세요.</div>
 
     <div class="hstack" style="margin:16px 0 30px">
       <button class="btn sm" id="investRecord">＋ 월별 투자 기록</button>
@@ -4327,6 +4397,15 @@
           setTimeout(() => (t.hidden = true), 220);
         }, 1800);
       }
+      function catOptionsOfKind(sel, kind) {
+        return S.settings.cats
+          .filter((c) => kindOfCat(c) === kind)
+          .map(
+            (c) =>
+              `<option value="${c.id}" ${c.id === sel ? "selected" : ""}>${esc(c.name)}</option>`,
+          )
+          .join("");
+      }
       function catOptions(sel, kind) {
         return S.settings.cats
           .filter((c) => !kind || c.kind === kind)
@@ -4341,13 +4420,18 @@
       function addItem(it) {
         const ym = ymOf(it.d);
         if (!S.months[ym]) S.months[ym] = { items: [] };
+        const before = ledgerInvest(ym);
         S.months[ym].items.push(it);
         persist("month:" + ym);
+        if (it.k === "inv") followLedgerInvest(ym, before);
       }
       function removeItem(ym, id) {
         if (!S.months[ym]) return;
+        const gone = S.months[ym].items.find((i) => i.id === id);
+        const before = ledgerInvest(ym);
         S.months[ym].items = S.months[ym].items.filter((i) => i.id !== id);
         persist("month:" + ym);
+        if (gone && gone.k === "inv") followLedgerInvest(ym, before);
       }
       function saveTx() {
         if (!UI.amount) return;
@@ -4356,7 +4440,7 @@
           d: UI.date,
           c: UI.cat,
           a: UI.amount,
-          k: UI.kind,
+          k: kindOfCat(catById(UI.cat)),
           m: UI.memo.trim(),
           o: UI.kind === "ex" && UI.once,
         });
@@ -4394,10 +4478,16 @@
     <div class="field"><label>금액</label><input id="e_a" type="number" inputmode="numeric" value="${it.a}"></div>
     <div class="field"><div class="row2">
       <div><label>날짜</label><input id="e_d" type="date" value="${it.d}"></div>
-      <div><label>분류</label><select id="e_c">${catOptions(it.c, it.k === "in" ? "in" : "ex")}</select></div>
+      <div><label>분류</label><select id="e_c">${["ex", "in", "inv"]
+        .map((k) => {
+          const opts = catOptionsOfKind(it.c, k);
+          return opts ? `<optgroup label="${kindLabel(k)}">${opts}</optgroup>` : "";
+        })
+        .join("")}</select></div>
     </div></div>
+    <div class="note" id="e_k_hint" style="margin:-4px 0 12px"></div>
     <div class="field"><label>메모</label><input id="e_m" value="${esc(it.m || "")}"></div>
-    ${it.k === "ex" ? `<button class="switchline" id="e_o" style="margin-bottom:14px"><span>일회성 지출</span><span class="sw" aria-pressed="${!!it.o}"></span></button>` : ""}
+    <button class="switchline" id="e_o" style="margin-bottom:14px" ${it.k === "ex" ? "" : "hidden"}><span>일회성 지출</span><span class="sw" aria-pressed="${!!it.o}"></span></button>
     <div class="stack"><button class="btn" id="e_save">저장</button>
     <button class="btn danger" id="e_del">삭제</button></div>`,
           () => {
@@ -4408,16 +4498,31 @@
                 once = !once;
                 $(".sw", ob).setAttribute("aria-pressed", once);
               };
+            const kindNow = () => kindOfCat(catById($("#e_c").value));
+            const paintKind = () => {
+              const k = kindNow();
+              ob.hidden = k !== "ex";
+              $("#e_k_hint").textContent =
+                k === it.k
+                  ? ""
+                  : k === "inv"
+                    ? "투자로 바뀌어요 — 수입·지출에서 빠지고 투자 납입으로 잡혀요."
+                    : `${kindLabel(k)}(으)로 바뀌어요.`;
+            };
+            $("#e_c").onchange = paintKind;
+            paintKind();
             $("#e_save").onclick = () => {
               const nd = $("#e_d").value || it.d;
+              const k = kindNow();
               removeItem(ym, id);
               addItem({
                 ...it,
                 a: Math.max(0, Number($("#e_a").value) || 0),
                 d: nd,
                 c: $("#e_c").value,
+                k,
                 m: $("#e_m").value.trim(),
-                o: once,
+                o: k === "ex" && once,
               });
               closeSheet();
               render();
@@ -4794,6 +4899,26 @@
       function investmentPrincipalAmount(basis, contribution, withdrawal) {
         return Math.max(0, basis.amount + Math.max(0, Number(contribution) || 0) - Math.max(0, Number(withdrawal) || 0));
       }
+      /* 가계부에 '투자'로 적은 돈 = 그 달 투자 납입액. 납입액을 두 군데서 따로 치지 않게 한다. */
+      function ledgerInvest(ym) {
+        return monthItems(ym)
+          .filter((it) => it.k === "inv")
+          .reduce((sum, it) => sum + (Number(it.a) || 0), 0);
+      }
+      /* 이미 저장한 달의 납입액이 가계부 합계를 따라가고 있었다면(같았다면) 새 합계로 옮기고
+         원금도 같은 만큼 움직인다. 직접 다른 값을 넣어 둔 달은 건드리지 않는다 —
+         그래야 직접 입력한 납입액 위에 가계부 투자 기록이 또 더해지지 않는다. */
+      function followLedgerInvest(ym, before) {
+        const r = S.investMonths && S.investMonths[ym];
+        if (!r) return false;
+        const after = ledgerInvest(ym);
+        if (after === before || (Number(r.contrib) || 0) !== before) return false;
+        r.contrib = after;
+        r.principal = Math.max(0, (Number(r.principal) || 0) + after - before);
+        recalcInvestmentMonths();
+        persist("investMonth:" + ym);
+        return true;
+      }
       function openInvestmentMonthSheet(initialYm) {
         const originalYm =
           initialYm && S.investMonths[initialYm] ? initialYm : null;
@@ -4802,13 +4927,15 @@
           `<h3>${originalYm ? "월별 투자 기록 수정" : "월별 투자 기록"}</h3>
     <div class="field"><label>기록 월</label><input id="im_m" type="month" value="${initialYm || nowYm}"></div>
     <div class="field"><div class="row2">
-      <div><label>당월 납입액</label><input id="im_c" type="number" inputmode="numeric"></div>
+      <div><label for="im_c">당월 납입액</label><input id="im_c" type="number" inputmode="numeric"></div>
       <div><label>당월 인출액</label><input id="im_w" type="number" inputmode="numeric"></div>
     </div></div>
     <div class="field"><div class="row2">
       <div><label>월말 투자 평가액</label><input id="im_v" type="number" inputmode="numeric"></div>
       <div><label for="im_p" id="im_p_label">누적 원금 (자동)</label><input id="im_p" type="number" inputmode="numeric" min="0" readonly></div>
     </div></div>
+    <div class="note" id="im_c_hint" aria-live="polite" style="margin:-4px 0 10px"></div>
+    <button class="btn sm ghost" id="im_c_ledger" style="margin-bottom:14px" hidden>가계부 투자 합계로 맞추기</button>
     <div class="note" id="im_p_hint" aria-live="polite" style="margin-bottom:8px"></div>
     <button class="btn sm ghost" id="im_p_toggle" style="margin-bottom:14px" aria-pressed="false">원금 직접 보정</button>
     <div class="field"><label>메모</label><input id="im_n" placeholder="예: ISA 50만원 추가 납입, VOO 매수"></div>
@@ -4817,7 +4944,16 @@
     <div class="stack"><button class="btn" id="im_save">이 달 기록 저장</button>
       ${originalYm ? `<button class="btn danger" id="im_del">이 달 기록 삭제</button>` : ""}</div>`,
           () => {
-            let principalBasis, manualPrincipal = false;
+            let principalBasis, manualPrincipal = false, ledgerSum = 0;
+            const paintLedger = () => {
+              const c = Number($("#im_c").value) || 0;
+              $("#im_c_ledger").hidden = !ledgerSum || c === ledgerSum;
+              $("#im_c_hint").innerHTML = !ledgerSum
+                ? "기록 탭에서 <b>투자</b>로 적은 돈이 있으면 여기에 자동으로 들어와요."
+                : c === ledgerSum
+                  ? `가계부 투자 기록 합계 ${won(ledgerSum)}원과 같아요. 가계부에 투자를 더 적으면 납입액도 따라 바뀌어요.`
+                  : `가계부 투자 기록 합계는 ${won(ledgerSum)}원이에요. 같은 돈을 여기와 가계부에 두 번 넣지 않았는지 확인하세요.`;
+            };
             const updatePrincipal = () => {
               $("#im_p").readOnly = !manualPrincipal;
               $("#im_p_label").textContent = manualPrincipal ? "누적 원금 (직접 입력)" : "누적 원금 (자동)";
@@ -4837,15 +4973,16 @@
               const saved = S.investMonths[ym];
               const current = ym === nowYm;
               const t = investTotals();
+              ledgerSum = ledgerInvest(ym);
               const base =
                 current
                   ? buildInvestmentRecord(ym, {
-                      contrib: saved ? saved.contrib : t.contrib,
+                      contrib: saved ? saved.contrib : ledgerSum || t.contrib,
                       withdrawal: saved ? saved.withdrawal : 0,
                       memo: saved ? saved.memo : "",
                     })
                   : saved || {
-                      contrib: 0,
+                      contrib: ledgerSum,
                       withdrawal: 0,
                       invest: 0,
                       principal: 0,
@@ -4858,6 +4995,7 @@
               principalBasis = investmentPrincipalBasis(ym, originalYm);
               manualPrincipal = false;
               updatePrincipal();
+              paintLedger();
               $("#im_n").value = base.memo || "";
               const savedHolds = Array.isArray(base.holdings)
                 ? base.holdings
@@ -4878,7 +5016,15 @@
                   : `과거 월을 새로 입력할 때는 그달의 평가액을 넣어주세요. 원금은 납입·인출에 따라 자동 계산됩니다.`;
             };
             $("#im_m").onchange = fill;
-            $("#im_c").oninput = updatePrincipal;
+            $("#im_c").oninput = () => {
+              updatePrincipal();
+              paintLedger();
+            };
+            $("#im_c_ledger").onclick = () => {
+              $("#im_c").value = ledgerSum;
+              updatePrincipal();
+              paintLedger();
+            };
             $("#im_w").oninput = updatePrincipal;
             $("#im_p_toggle").onclick = () => {
               manualPrincipal = !manualPrincipal;
@@ -5079,9 +5225,14 @@
           if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
           const a = numOf(r[ai]);
           if (!a) return;
-          const cat = matchCat(String(r[ci] || "").trim());
+          let cat = matchCat(String(r[ci] || "").trim());
+          const kl = ki >= 0 ? String(r[ki]) : "";
+          if (kl.includes("투자") && cat.kind !== "inv")
+            cat = S.settings.cats.find((c) => c.kind === "inv") || cat;
           const k =
-            ki >= 0 ? (String(r[ki]).includes("수입") ? "in" : "ex") : cat.kind;
+            ki >= 0 && cat.kind !== "inv"
+              ? (kl.includes("수입") ? "in" : "ex")
+              : kindOfCat(cat);
           const ym = ymOf(d);
           (out.months[ym] = out.months[ym] || { items: [] }).items.push({
             id: uid(),
@@ -5360,7 +5511,7 @@
             .map((i) =>
               [
                 i.d,
-                i.k === "in" ? "수입" : "지출",
+                kindLabel(i.k),
                 catById(i.c).name,
                 i.a,
                 i.m || "",
@@ -5422,7 +5573,7 @@
           XLSX.utils.json_to_sheet(
             items.map((i) => ({
               날짜: i.d,
-              구분: i.k === "in" ? "수입" : "지출",
+              구분: kindLabel(i.k),
               분류: catById(i.c).name,
               금액: i.a,
               메모: i.m || "",
@@ -5443,6 +5594,7 @@
                 적립·할인: s.deduct,
                 평소생활비: s.living,
                 일회성: s.once,
+                투자: s.invest,
                 남은돈: s.left,
               };
             }),
@@ -5896,7 +6048,7 @@
         }
         if (code === "KeyT") {
           e.preventDefault();
-          UI.kind = UI.kind === "ex" ? "in" : "ex";
+          UI.kind = UI.kind === "ex" ? "in" : UI.kind === "in" ? "inv" : "ex";
           UI.once = false;
           render();
           return;
@@ -6002,7 +6154,8 @@
     <div class="field"><label>종류</label><select id="c_k">
       <option value="ex" ${c.kind === "ex" ? "selected" : ""}>지출</option>
       <option value="in" ${c.kind === "in" && !c.deduct ? "selected" : ""}>수입</option>
-      <option value="de" ${c.deduct ? "selected" : ""}>수입 · 지출에서 차감 (적립·할인·이자)</option></select></div>
+      <option value="de" ${c.deduct ? "selected" : ""}>수입 · 지출에서 차감 (적립·할인·이자)</option>
+      <option value="inv" ${c.kind === "inv" ? "selected" : ""}>투자 (월급에서 투자 계좌로 옮긴 돈 · 수입·지출 제외)</option></select></div>
     ${used ? `<div class="note" style="margin-bottom:12px">이 분류로 기록된 항목이 ${used}건 있어요.</div>` : ""}
     <div class="stack"><button class="btn" id="c_save">저장</button>
     ${isNew || used ? "" : `<button class="btn danger" id="c_del">삭제</button>`}</div>`,
@@ -6012,13 +6165,27 @@
               const next = {
                 id: c.id,
                 name: $("#c_n").value.trim() || "분류",
-                kind: k === "ex" ? "ex" : "in",
+                kind: k === "ex" ? "ex" : k === "inv" ? "inv" : "in",
                 deduct: k === "de" || undefined,
               };
               const i = S.settings.cats.findIndex((x) => x.id === c.id);
               if (i < 0) S.settings.cats.push(next);
               else S.settings.cats[i] = next;
               persist("settings");
+              /* 종류를 바꾸면 이 분류로 적어 둔 기록도 새 종류를 따른다 (예: 수입 → 투자) */
+              if (kindOfCat(next) !== kindOfCat(c)) {
+                Object.keys(S.months).forEach((ym) => {
+                  const hit = (S.months[ym].items || []).filter((x) => x.c === c.id);
+                  if (!hit.length) return;
+                  const before = ledgerInvest(ym);
+                  hit.forEach((x) => {
+                    x.k = kindOfCat(next);
+                    if (x.k !== "ex") delete x.o;
+                  });
+                  persist("month:" + ym);
+                  followLedgerInvest(ym, before);
+                });
+              }
               closeSheet();
               render();
               toast("저장했어요");
@@ -6310,6 +6477,10 @@
       if (!S.assets) S.assets = structuredClone(SEED_ASSETS);
       if (S.rev == null) S.rev = 0;
       if (migrate()) persist("assets", "investMonths");
+      {
+        const ledgerKeys = normalizeLedgerKinds();
+        if (ledgerKeys.length) persist(...ledgerKeys);
+      }
       loadSyncCfg();
       render();
       setSync(SYNC.url ? "busy" : "off");

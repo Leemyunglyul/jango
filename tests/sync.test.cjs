@@ -52,6 +52,7 @@ function harness(saved) {
     }
     let S = seed();
     function migrate() { return false; }
+    function normalizeLedgerKinds() { return []; }
     function recalcInvestmentMonths() {}
     function render() {}
     function txRows() { return Object.values(S.months).flatMap(m => m.items); }

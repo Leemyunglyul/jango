@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const source = html.slice(html.indexOf('function investmentPrincipalBasis('), html.indexOf('/* ============================== 가져오기'));
 
-function harness(months = {}) {
+function harness(months = {}, ledger = {}) {
   const elements = new Map();
   const element = (id) => {
     if (!elements.has(id)) elements.set(id, { value: '', setAttribute() {}, focus() {} });
@@ -14,7 +14,7 @@ function harness(months = {}) {
   };
   const saved = [];
   const ctx = vm.createContext({
-    S: { investMonths: structuredClone(months), assets: [] }, SYNC: {}, GROUPS: [],
+    S: { investMonths: structuredClone(months), assets: [], months: structuredClone(ledger) }, SYNC: {}, GROUPS: [],
     $: element, todayISO: () => '2026-09-27', ymOf: d => d.slice(0, 7),
     ymLabel: ym => ym, won: String, esc: String,
     daysIn: () => 30, pad2: n => String(n).padStart(2, '0'),
@@ -27,6 +27,7 @@ function harness(months = {}) {
     recalcInvestmentMonths() {}, persist: (...keys) => saved.push(keys),
     closeSheet() {}, render() {}, toast() {},
   });
+  vm.runInContext('function monthItems(ym) { return (S.months && S.months[ym] && S.months[ym].items) || []; }', ctx);
   vm.runInContext(source, ctx);
   return { ctx, element, saved, run: code => vm.runInContext(code, ctx) };
 }
@@ -89,4 +90,42 @@ test('moving a month excludes the removed source month from the carried principa
   h.run("openInvestmentMonthSheet('2026-08')");
   h.element('#im_m').value = '2026-09'; h.element('#im_m').onchange();
   assert.equal(h.element('#im_p').value, 1000);
+});
+
+const inv = (id, a) => ({ id, d: '2026-09-10', c: 'invest', a, k: 'inv' });
+
+test('a new month takes its contribution from investment transfers recorded in the ledger', () => {
+  const h = harness({ '2026-08': { principal: 1000 } }, { '2026-09': { items: [
+    { id: 's', d: '2026-09-01', c: 'sal', a: 3000, k: 'in' }, inv('i1', 300), inv('i2', 200),
+  ] } });
+  h.run('openInvestmentMonthSheet()');
+  assert.equal(h.element('#im_c').value, 500);
+  assert.equal(h.element('#im_p').value, 1500);
+  assert.equal(h.element('#im_c_ledger').hidden, true);
+});
+
+test('a saved month whose contribution differs from the ledger offers to match it instead of adding both', async () => {
+  const h = harness({ '2026-09': { principal: 1700, contrib: 700, withdrawal: 0 } }, { '2026-09': { items: [inv('i1', 500)] } });
+  h.run("openInvestmentMonthSheet('2026-09')");
+  assert.equal(h.element('#im_c').value, 700);
+  assert.equal(h.element('#im_c_ledger').hidden, false);
+  h.element('#im_c_ledger').onclick();
+  assert.equal(h.element('#im_c').value, 500);
+  assert.equal(h.element('#im_p').value, 1500);
+});
+
+test('saved months that track the ledger follow later transfers; manually entered months stay put', () => {
+  const tracking = harness({ '2026-09': { principal: 1500, contrib: 500 } }, { '2026-09': { items: [inv('i1', 500)] } });
+  tracking.ctx.S.months['2026-09'].items.push(inv('i2', 200));
+  assert.equal(tracking.run("followLedgerInvest('2026-09', 500)"), true);
+  assert.equal(tracking.ctx.S.investMonths['2026-09'].contrib, 700);
+  assert.equal(tracking.ctx.S.investMonths['2026-09'].principal, 1700);
+  assert.deepEqual(tracking.saved.at(-1), ['investMonth:2026-09']);
+
+  /* 직접 50만을 넣어 둔 달에 가계부 투자 50만을 적어도 100만이 되지 않는다 */
+  const manual = harness({ '2026-09': { principal: 1500, contrib: 500 } }, { '2026-09': { items: [] } });
+  manual.ctx.S.months['2026-09'].items.push(inv('i1', 500));
+  assert.equal(manual.run("followLedgerInvest('2026-09', 0)"), false);
+  assert.equal(manual.ctx.S.investMonths['2026-09'].contrib, 500);
+  assert.equal(manual.ctx.S.investMonths['2026-09'].principal, 1500);
 });
