@@ -918,6 +918,19 @@
         font-size: 12.5px;
         font-weight: 600;
       }
+      .banner .hstack {
+        margin-left: auto;
+        flex: none;
+        gap: 6px;
+      }
+      .banner .hstack button {
+        margin-left: 0;
+      }
+      .banner button.ghost {
+        background: transparent;
+        color: var(--warn);
+        border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+      }
 
       /* ---------- stats ---------- */
       .tiles {
@@ -4139,6 +4152,15 @@
       <button id="addAllRec">한번에 넣기</button></div>`
         : ""
     }
+    ${(() => {
+      const due = backupDue();
+      return due
+        ? `<div class="banner" style="margin:6px 0 14px">
+      <div><div class="t">${due.days == null ? "아직 백업한 적이 없어요" : `백업한 지 ${due.days}일 지났어요`}</div>
+      <div class="s">기록이 이 브라우저에만 있어요. 백업 파일을 받아 두거나 설정에서 구글 시트를 연결하세요.</div></div>
+      <div class="hstack"><button id="backupNow">백업</button><button id="backupLater" class="ghost">나중에</button></div></div>`
+        : "";
+    })()}
 
     ${
       UI.kind === "inv"
@@ -5172,13 +5194,17 @@
     }
     ${SYNC.url ? "" : `<div class="note" style="margin-top:8px">연결하지 않으면 이 브라우저에만 저장돼요. 폰과 PC가 따로 놉니다.</div>`}
     `],
-          [4 + 0.75, `
+          [5 + 0.75, `
     <h2 class="sec">가져오기 · 내보내기</h2>
     <div class="card rows">
       <button class="row" id="doImport"><span class="grow"><span class="nm">CSV 가져오기</span> <span class="mm">엑셀 표를 그대로 붙여넣기</span></span><span class="mm">›</span></button>
       <button class="row" id="expXlsx"><span class="grow"><span class="nm">엑셀(.xlsx)로 내보내기</span> <span class="mm">내역·월별요약·자산 3개 시트</span></span><span class="mm">›</span></button>
       <button class="row" id="expCsv"><span class="grow"><span class="nm">전체 CSV로 내보내기</span> <span class="mm">거래 내역 한 장</span></span><span class="mm">›</span></button>
-      <button class="row" id="expJson"><span class="grow"><span class="nm">백업 파일(JSON)</span> <span class="mm">그대로 되돌릴 수 있는 원본</span></span><span class="mm">›</span></button>
+      <button class="row" id="expJson"><span class="grow"><span class="nm">백업 파일(JSON)</span> <span class="mm">${(() => {
+        const d = daysSince(lsGet(BACKUP_KEY));
+        return d == null ? "그대로 되돌릴 수 있는 원본" : d === 0 ? "오늘 백업함" : `마지막 백업 ${d}일 전`;
+      })()}</span></span><span class="mm">›</span></button>
+      <button class="row" id="restoreJson"><span class="grow"><span class="nm">백업 파일로 복원</span> <span class="mm">받아 둔 JSON으로 되돌리기</span></span><span class="mm">›</span></button>
     </div>
     `],
           [1 + 0.75 + 0.5, `
@@ -5203,6 +5229,87 @@
       }
 
       /* ============================== 렌더 ============================== */
+      /* ══════════ 백업 알림 ══════════
+         시트·DB에 연결하지 않으면 기록이 이 브라우저에만 있다. 사이트 데이터가 지워지면 끝이라
+         한 달에 한 번은 백업 파일을 받도록 기록 탭에서 알려 준다. */
+      const BACKUP_KEY = "jango.backupAt",
+        BACKUP_SNOOZE_KEY = "jango.backupSnooze",
+        BACKUP_EVERY_DAYS = 30;
+      function lsGet(k) {
+        try {
+          return localStorage.getItem(k);
+        } catch (e) {
+          return null;
+        }
+      }
+      function lsSet(k, v) {
+        try {
+          localStorage.setItem(k, v);
+        } catch (e) {}
+      }
+      function daysSince(iso) {
+        if (!iso) return null;
+        const t = Date.parse(iso);
+        return isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000);
+      }
+      function backupDue() {
+        if (SYNC.url || DB) return null;
+        const count = Object.values(S.months || {}).reduce((n, m) => n + ((m && m.items) || []).length, 0);
+        if (count < 20) return null;
+        const snooze = lsGet(BACKUP_SNOOZE_KEY);
+        if (snooze && Date.parse(snooze) > Date.now()) return null;
+        const days = daysSince(lsGet(BACKUP_KEY));
+        if (days != null && days < BACKUP_EVERY_DAYS) return null;
+        return { days };
+      }
+      function backupNow() {
+        offer("잔고와흐름_백업_" + todayISO() + ".json", JSON.stringify(S, null, 2));
+        lsSet(BACKUP_KEY, new Date().toISOString());
+      }
+      /* 백업 파일(JSON)로 되돌린다. 지금 기록은 모두 백업 내용으로 바뀐다. */
+      function restoreBackup() {
+        const inp = document.createElement("input");
+        inp.type = "file";
+        inp.accept = ".json,application/json";
+        inp.onchange = async () => {
+          const f = inp.files && inp.files[0];
+          if (!f) return;
+          let p;
+          try {
+            p = JSON.parse(await f.text());
+          } catch (e) {
+            return toast("백업 파일을 읽지 못했어요");
+          }
+          if (!p || !p.settings || !Array.isArray(p.settings.cats) || typeof p.months !== "object")
+            return toast("잔고와 흐름 백업 파일이 아니에요");
+          const n = Object.values(p.months || {}).reduce((a, m) => a + ((m && m.items) || []).length, 0);
+          openSheet(
+            `<h3>백업으로 복원</h3><div class="note" style="margin-bottom:16px"><b>${esc(f.name)}</b> · 거래 ${n.toLocaleString("ko-KR")}건.
+            지금 앱의 기록·자산·설정이 모두 이 파일 내용으로 바뀌어요${SYNC.url ? ". 연결한 시트에도 그대로 올라가요" : ""}.</div>
+      <div class="stack"><button class="btn" id="rs_yes">복원할게요</button><button class="btn ghost" id="rs_no">취소</button></div>`,
+            () => {
+              $("#rs_no").onclick = closeSheet;
+              $("#rs_yes").onclick = () => {
+                delete p._pendingSync;
+                delete p._deletedIds;
+                delete p._seenRev;
+                S = Object.assign(seed(), p);
+                if (!S.settings.quick) S.settings.quick = SEED_SETTINGS.quick;
+                if (!S.investMonths) S.investMonths = structuredClone(S.snaps || {});
+                migrate();
+                normalizeLedgerKinds();
+                recalcInvestmentMonths();
+                persist("settings", "assets", "investMonths", "rec", "month:*");
+                closeSheet();
+                render();
+                toast("백업으로 복원했어요");
+              };
+            },
+          );
+        };
+        inp.click();
+      }
+
       function render(keepScroll) {
         $("#mlabel").textContent = ymLabel(UI.month);
         $$(".tabs button").forEach((b) =>
@@ -6933,11 +7040,18 @@
           exportCSV(allItems(), "잔고와흐름_전체_" + todayISO() + ".csv");
           return;
         }
-        if (t.id === "expJson") {
-          offer(
-            "잔고와흐름_백업_" + todayISO() + ".json",
-            JSON.stringify(S, null, 2),
-          );
+        if (t.id === "expJson" || t.id === "backupNow") {
+          backupNow();
+          if (t.id === "backupNow") render(true);
+          return;
+        }
+        if (t.id === "backupLater") {
+          lsSet(BACKUP_SNOOZE_KEY, new Date(Date.now() + 7 * 86400000).toISOString());
+          render(true);
+          return;
+        }
+        if (t.id === "restoreJson") {
+          restoreBackup();
           return;
         }
         if (t.id === "resetAll") {
@@ -6948,13 +7062,8 @@
               $("#r_no").onclick = closeSheet;
               $("#r_yes").onclick = () => {
                 S = seed();
-                persist(
-                  "settings",
-                  "assets",
-                  "investMonths",
-                  "rec",
-                  ...Object.keys(S.months).map((m) => "month:" + m),
-                );
+                /* month:* — 시트에 남은 다른 달 거래까지 통째로 바꾼다 */
+                persist("settings", "assets", "investMonths", "rec", "month:*");
                 closeSheet();
                 render();
                 toast("초기화했어요");
@@ -7502,6 +7611,9 @@
         if (ledgerKeys.length) persist(...new Set(ledgerKeys));
       }
       loadSyncCfg();
+      /* 브라우저가 저장 공간이 부족할 때 이 사이트 데이터를 먼저 지우지 않게 요청한다 */
+      if (!SYNC.url && navigator.storage && navigator.storage.persist)
+        navigator.storage.persisted().then((ok) => ok || navigator.storage.persist()).catch(() => {});
       render();
       setSync(SYNC.url ? "busy" : "off");
       if (SYNC.url) syncBoot();
