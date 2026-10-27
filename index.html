@@ -2235,6 +2235,71 @@
         #saveTx { position: sticky; bottom: calc(72px + env(safe-area-inset-bottom)); z-index: 5;
           box-shadow: 0 6px 18px color-mix(in srgb, var(--ground) 80%, transparent) !important; }
       }
+      /* 예산 페이스 */
+      .bpace { margin-top: 7px; font-size: 12px; color: var(--ink3); text-align: left; }
+      .bpace.warn { color: var(--warn); }
+      .bpace.crit { color: var(--crit); }
+      .bpace b { font-weight: 700; }
+      .budwarn { display: flex; align-items: center; gap: 10px; width: 100%; margin: 6px 0 14px; padding: 12px 16px;
+        border-radius: 14px; background: color-mix(in srgb, var(--crit) 8%, var(--surface)); color: var(--ink);
+        font-size: 13.5px; font-weight: 600; text-align: left; }
+      .budwarn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--crit); flex: none; }
+      .budwarn .grow { flex: 1; }
+      /* 목표 자산 */
+      .goal { display: block; width: 100%; margin-top: 14px; padding: 16px 18px; border-radius: var(--r-card);
+        background: var(--surface); box-shadow: var(--shadow); text-align: left; color: var(--ink); }
+      .goal .top { display: flex; align-items: baseline; gap: 8px; }
+      .goal .n { flex: 1; font-weight: 700; font-size: 15px; }
+      .goal .r { font-size: 13px; color: var(--ink2); }
+      .goal .r b { color: var(--accent); }
+      .goal .track { height: 8px; border-radius: 99px; background: var(--surface2); margin: 10px 0 8px; overflow: hidden; }
+      .goal .track i { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+      .goal .s { font-size: 12.5px; color: var(--ink2); line-height: 1.55; }
+      .goal .s b { color: var(--ink); }
+      .goal.empty-goal { display: flex; align-items: center; gap: 10px; }
+      .goal.empty-goal .grow { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+      /* 연간 리포트 */
+      .yr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .yr-grid > div { background: var(--surface2); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; }
+      .yr-grid span { font-size: 12px; color: var(--ink3); font-weight: 600; }
+      .yr-grid b { font-size: 18px; font-weight: 700; letter-spacing: -0.03em; }
+      .yr-grid small { font-size: 11.5px; color: var(--ink2); min-height: 1em; }
+      .yr-grid .good { color: var(--good); }
+      .yr-grid .bad { color: var(--crit); }
+      .yr-h { margin: 0 0 8px; font-size: 14px; }
+      .yr-top { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 10px; align-items: center; font-size: 13px; }
+      .yr-top .bar { height: 8px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+      .yr-top .bar i { display: block; height: 100%; background: var(--expense); border-radius: 99px; }
+      .yr-top .v { text-align: right; font-weight: 600; white-space: nowrap; }
+      .sheet h3 .mm { font-size: 13px; font-weight: 600; color: var(--ink3); margin-left: 4px; }
+      .goal .n .mm { font-size: 12px; font-weight: 600; color: var(--ink3); margin-left: 4px; }
+      @media (max-width: 919px) {
+        /* 모바일: 기록 탭은 곧바로 금액 입력이 보이게 제목을 숨기고, 다른 탭은 부제만 뺀다 */
+        #main[data-tab="record"] .pagehead { display: none; }
+        .pagehead p { display: none; }
+        .pagehead { padding-bottom: 2px; }
+        /* 검색 중에는 이 달 요약·추이를 접고 결과만 */
+        .cols-list.searching > .colB { display: none; }
+      }
+      /* 내역 검색 */
+      .searchbar { position: relative; display: flex; align-items: center; margin: 4px 0 14px; }
+      .searchbar svg { position: absolute; left: 14px; width: 18px; height: 18px; color: var(--ink3); pointer-events: none; }
+      .searchbar input { width: 100%; min-height: 48px; padding: 0 44px 0 42px; border: 0; border-radius: 14px;
+        background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; box-shadow: var(--shadow); }
+      .searchbar input::-webkit-search-cancel-button { display: none; }
+      .searchbar input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+      .searchbar button { position: absolute; right: 6px; width: 36px; height: 36px; border-radius: 50%;
+        color: var(--ink3); font-size: 20px; line-height: 1; }
+      .scopes { margin: -4px 0 14px; flex-wrap: wrap; }
+      .quick[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+      .qsum { margin: 0 0 10px; padding: 12px 16px; border-radius: 14px; background: var(--surface2);
+        font-size: 13px; color: var(--ink2); line-height: 1.6; }
+      .qsum b { font-weight: 700; color: var(--ink); }
+      .empty .quick { display: inline-flex; }
+      /* 키보드로 다닐 때 어디에 있는지 보이게 */
+      button:focus-visible, [role="button"]:focus-visible, a:focus-visible {
+        outline: 2px solid var(--accent); outline-offset: 2px;
+      }
       @media (prefers-reduced-motion: reduce) {
         * {
           transition: none !important;
@@ -2723,6 +2788,9 @@
         memo: "",
         once: false,
         filter: "all",
+        /* 내역 검색어와 범위(month: 고른 달 · 3m: 최근 3개월 · year: 고른 달의 해 · all: 전체) */
+        q: "",
+        qScope: "month",
         editing: null,
       };
 
@@ -3259,6 +3327,7 @@
           recurring: S.settings.recurring,
           quick: S.settings.quick,
           wealthBaseline: S.settings.wealthBaseline || null,
+          goal: S.settings.goal || null,
           rec: S.rec || {},
         };
         /* 설정 탭의 셀 하나는 5만 자까지라 몇십 년 치 월별 자산을 담을 수 없다 */
@@ -3467,6 +3536,7 @@
           recurring: d.settings.recurring || [],
           quick: d.settings.quick || SEED_SETTINGS.quick,
           wealthBaseline: d.settings.wealthBaseline || null,
+          goal: d.settings.goal || null,
           /* 다른 기기에서 남긴 달과 이 기기의 달을 합친다. v7 시트는 '월별 자산' 탭(d.history)이 원본,
              그 전에는 설정 셀에 있었다. */
           history: {
@@ -3714,6 +3784,36 @@
           s.fixedSpent +
           s.once;
         return { elapsed, dim, projected, variable, fixedRemain };
+      }
+      /* 예산 페이스: 이번 달 지금까지 쓴 속도로 월말에 얼마가 될지, 예산을 언제 넘을지.
+         고정비 분류는 남은 고정비를 더하고, 일회성 지출은 하루 페이스에서 뺀다. */
+      function budgetPace(ym, cid, limit) {
+        const today = todayISO();
+        if (ymOf(today) !== ym || !(limit > 0)) return null;
+        const items = monthItems(ym).filter((it) => it.k === "ex" && it.c === cid);
+        const used = items.reduce((a, it) => a + it.a, 0);
+        const once = items.filter((it) => it.o).reduce((a, it) => a + it.a, 0);
+        const recs = S.settings.recurring.filter((r) => r.cat === cid);
+        const fixedPlan = recs.reduce((a, r) => a + (Number(r.amount) || 0), 0);
+        const fixedSpent = recs.length ? Math.min(used - once, fixedPlan) : 0;
+        const daily = Math.max(0, used - once - fixedSpent) / Math.max(1, Number(today.slice(8, 10)));
+        const dim = daysIn(ym);
+        const day = Number(today.slice(8, 10));
+        const projected = Math.round(used + daily * (dim - day) + Math.max(0, fixedPlan - fixedSpent));
+        let overDay = null;
+        if (used <= limit && projected > limit && daily > 0) {
+          const d = day + Math.ceil((limit - used - Math.max(0, fixedPlan - fixedSpent)) / daily);
+          overDay = Math.min(dim, Math.max(day + 1, d));
+        }
+        return { used, projected, overDay, over: used > limit };
+      }
+      /* 이번 달 예산을 넘을 것 같은 분류 — 기록 탭 안내용. 월초 며칠은 페이스가 흔들려서 건너뛴다. */
+      function budgetWarnings(ym) {
+        if (Number(todayISO().slice(8, 10)) < 5) return [];
+        return Object.entries(S.settings.budgets || {})
+          .map(([cid, limit]) => ({ cid, limit, p: budgetPace(ym, cid, limit) }))
+          .filter((b) => b.p && (b.p.over || b.p.overDay))
+          .sort((a, b) => (a.p.over ? 0 : a.p.overDay) - (b.p.over ? 0 : b.p.overDay));
       }
       function missingRecurring(ym) {
         const items = monthItems(ym);
@@ -4156,10 +4256,20 @@
       const due = backupDue();
       return due
         ? `<div class="banner" style="margin:6px 0 14px">
-      <div><div class="t">${due.days == null ? "아직 백업한 적이 없어요" : `백업한 지 ${due.days}일 지났어요`}</div>
-      <div class="s">기록이 이 브라우저에만 있어요. 백업 파일을 받아 두거나 설정에서 구글 시트를 연결하세요.</div></div>
+      <div><div class="t">${due.days == null ? "백업 파일을 받아 두세요" : `백업한 지 ${due.days}일 지났어요`}</div>
+      <div class="s">기록이 이 브라우저에만 있어요</div></div>
       <div class="hstack"><button id="backupNow">백업</button><button id="backupLater" class="ghost">나중에</button></div></div>`
         : "";
+    })()}
+    ${(() => {
+      if (UI.kind !== "ex" || UI.month !== ymOf(todayISO())) return "";
+      const w = budgetWarnings(UI.month);
+      if (!w.length) return "";
+      const first = w[0], c = catById(first.cid);
+      const what = first.p.over
+        ? `${esc(c.name)} 예산을 ${won(first.p.used - first.limit)}원 넘었어요`
+        : `이 속도면 ${esc(c.name)} 예산을 ${first.p.overDay}일쯤 넘어요`;
+      return `<button class="budwarn" data-catmonth="${first.cid}"><span class="dot"></span><span class="grow">${what}${w.length > 1 ? ` <span class="mm">외 ${w.length - 1}개</span>` : ""}</span><span class="mm">›</span></button>`;
     })()}
 
     ${
@@ -4195,6 +4305,7 @@
       <span><kbd>M</kbd> 메모</span>
       <span><kbd>T</kbd> 지출·수입·투자</span>
       <span><kbd>[</kbd><kbd>]</kbd> 달 이동</span>
+      <span><kbd>/</kbd> 내역 검색</span>
     </div>
 
     <div class="stack" style="margin-top:14px">
@@ -4275,25 +4386,101 @@
       }
 
       /* ============================== 화면: 내역 ============================== */
-      function viewList() {
-        const items = monthItems(UI.month)
-          .slice()
+      const Q_SCOPES = [
+        ["month", "이 달"],
+        ["3m", "최근 3개월"],
+        ["year", "올해"],
+        ["all", "전체"],
+      ];
+      /* 검색 범위에 드는 달 목록. 검색어가 없으면 고른 달 하나만 본다. */
+      function searchMonths() {
+        if (!UI.q.trim() || UI.qScope === "month") return [UI.month];
+        if (UI.qScope === "3m") return [0, -1, -2].map((n) => shiftYM(UI.month, n));
+        const yms = Object.keys(S.months || {});
+        if (UI.qScope === "year") return yms.filter((m) => m.slice(0, 4) === UI.month.slice(0, 4));
+        return yms;
+      }
+      /* 검색어: 띄어쓰기로 나눈 낱말이 모두 들어 있어야 한다. 메모·분류 이름·금액(숫자)을 본다. */
+      function matchQuery(it, words) {
+        if (!words.length) return true;
+        const hay = (catById(it.c).name + " " + (it.m || "") + " " + kindLabel(it.k)).toLowerCase();
+        return words.every((w) => {
+          const num = w.replace(/[,원]/g, "");
+          if (/^\d+$/.test(num) && String(it.a).includes(num)) return true;
+          return hay.includes(w);
+        });
+      }
+      function listItems() {
+        const words = UI.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        return searchMonths()
+          .flatMap((m) => monthItems(m))
           .filter(
             (it) =>
-              UI.filter === "all" ||
-              (UI.filter === "once" ? it.o : it.k === UI.filter),
+              (UI.filter === "all" ||
+                (UI.filter === "once" ? it.o : it.k === UI.filter)) &&
+              matchQuery(it, words),
           )
           .sort((a, b) => b.d.localeCompare(a.d) || b.id.localeCompare(a.id));
-        const s = summarize(UI.month);
+      }
+      const LIST_LIMIT = 400;
+      function listBodyHTML() {
+        const all = listItems();
+        const items = all.slice(0, LIST_LIMIT);
+        const searching = !!UI.q.trim();
+        const multi = searching && UI.qScope !== "month";
         const groups = {};
         items.forEach((it) => {
           (groups[it.d] = groups[it.d] || []).push(it);
         });
         const days = Object.keys(groups).sort().reverse();
+        let sum = "";
+        if (searching) {
+          const t = { ex: 0, in: 0, inv: 0 };
+          all.forEach((it) => (t[it.k] = (t[it.k] || 0) + it.a));
+          const parts = [
+            t.ex ? `지출 <b style="color:var(--expense)">${won(t.ex)}</b>` : "",
+            t.in ? `수입 <b style="color:var(--accent)">${won(t.in)}</b>` : "",
+            t.inv ? `투자 <b style="color:var(--invest)">${won(t.inv)}</b>` : "",
+          ].filter(Boolean);
+          const scope = (Q_SCOPES.find(([k]) => k === UI.qScope) || [])[1];
+          sum = `<div class="qsum" role="status">${UI.qScope === "month" ? ymLabel(UI.month) : scope} · <b>${all.length}건</b>${parts.length ? " · " + parts.join(" · ") : ""}</div>`;
+        }
+        const body = days.length
+          ? days
+              .map((d) => {
+                const dd = new Date(d + "T00:00:00");
+                return (
+                  `<div class="daymark">${multi ? Number(d.slice(5, 7)) + "월 " : ""}${Number(d.slice(8, 10))}일 ${dowKo[dd.getDay()]}요일${(() => {
+                    const spent = groups[d].filter((i) => i.k === "ex").reduce((a, i) => a + i.a, 0);
+                    return spent ? `<span style="float:right;font-weight:500">${won(spent)}</span>` : "";
+                  })()}</div>` +
+                  groups[d].map(rowHTML).join("")
+                );
+              })
+              .join("") +
+            (all.length > items.length
+              ? `<div class="empty">최근 ${LIST_LIMIT}건만 보여 줘요. 검색어를 더 좁혀 보세요.</div>`
+              : "")
+          : searching
+            ? `<div class="empty">'${esc(UI.q.trim())}'에 맞는 기록이 없어요.${UI.qScope === "all" ? "" : `<br><button class="quick" data-qscope="all" style="margin-top:10px">전체 기간에서 찾기</button>`}</div>`
+            : `<div class="empty">${ymLabel(UI.month)}에 기록이 없어요.<br><button class="quick" data-tab="record" style="margin-top:10px">기록하러 가기</button></div>`;
+        return sum + `<div class="card rows">${body}</div>`;
+      }
+      function viewList() {
+        const s = summarize(UI.month);
         const miss = missingRecurring(UI.month);
 
+        /* 검색창은 맨 위 — 모바일에서도 요약·추이를 지나 내려가지 않고 바로 찾는다 */
         return `<section>
-   <div class="cols cols-list">
+    <div class="searchbar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      <input id="listQ" type="search" placeholder="메모·분류·금액 검색" aria-label="내역 검색" autocomplete="off" enterkeyhint="search" value="${esc(UI.q)}">
+      ${UI.q ? `<button id="listQClear" aria-label="검색어 지우기" title="지우기">×</button>` : ""}
+    </div>
+    ${UI.q.trim() ? `<div class="hstack scopes" role="group" aria-label="검색 범위">${Q_SCOPES.map(
+      ([k, n]) => `<button class="quick" data-qscope="${k}" aria-pressed="${UI.qScope === k}">${n}</button>`,
+    ).join("")}</div>` : ""}
+   <div class="cols cols-list${UI.q.trim() ? " searching" : ""}">
     <div class="colB">
     <div class="tiles">
       <div class="tile"><div class="k">수입</div><div class="v" style="color:var(--accent)">${won(s.income)}</div></div>
@@ -4316,7 +4503,7 @@
     }
     </div>
     <div class="colA">
-    <div class="hstack" style="margin:16px 0 10px">
+    <div class="hstack" style="margin:10px 0 10px">
       ${[
         ["all", "전체"],
         ["ex", "지출"],
@@ -4326,29 +4513,12 @@
       ]
         .map(
           ([k, n]) =>
-            `<button class="quick" data-filter="${k}" style="${UI.filter === k ? "border-color:var(--accent);color:var(--accent);font-weight:600" : ""}">${n}</button>`,
+            `<button class="quick" data-filter="${k}" aria-pressed="${UI.filter === k}">${n}</button>`,
         )
         .join("")}
-      <button class="quick" id="exportMonth" style="margin-left:auto;color:var(--ink2)">이 달 CSV</button>
+      <button class="quick" id="exportMonth" style="margin-left:auto;color:var(--ink2)">${UI.q.trim() ? "결과 CSV" : "이 달 CSV"}</button>
     </div>
-    <div class="card rows">
-      ${
-        days.length
-          ? days
-              .map((d) => {
-                const dd = new Date(d + "T00:00:00");
-                return (
-                  `<div class="daymark">${Number(d.slice(8, 10))}일 ${dowKo[dd.getDay()]}요일${(() => {
-                    const spent = groups[d].filter((i) => i.k === "ex").reduce((a, i) => a + i.a, 0);
-                    return spent ? `<span style="float:right;font-weight:500">${won(spent)}</span>` : "";
-                  })()}</div>` +
-                  groups[d].map(rowHTML).join("")
-                );
-              })
-              .join("")
-          : `<div class="empty">${ymLabel(UI.month)}에 기록이 없어요.<br>기록 탭에서 첫 줄을 남겨보세요.</div>`
-      }
-    </div>
+    <div id="listBody">${listBodyHTML()}</div>
     </div>
    </div>
   </section>`;
@@ -4436,10 +4606,18 @@
             : 1;
         const st = r > 1 ? "crit" : r > pace * 0.9 ? "warn" : "good";
         const stName = r > 1 ? "초과" : r > pace * 0.9 ? "빠름" : "여유";
+        const bp = budgetPace(ym, b.cid, b.limit);
+        const paceLine = !bp || !bp.used
+          ? ""
+          : bp.over
+            ? `<div class="bpace crit">${won(b.used - b.limit)}원 넘었어요 · 이 속도면 월말 약 ${won(bp.projected)}원</div>`
+            : bp.overDay
+              ? `<div class="bpace warn">이 속도면 <b>${bp.overDay}일쯤</b> 예산을 넘어요 · 월말 약 ${won(bp.projected)}원</div>`
+              : `<div class="bpace">월말 예상 ${won(bp.projected)}원 · ${won(b.limit - bp.projected)}원 남을 것 같아요</div>`;
         return `<button class="bud" data-catmonth="${b.cid}"><div class="top"><span class="n">${esc(c.name)}</span>
         <span class="pill ${st}">${stName}</span>
         <span class="r">${won(b.used)} / ${won(b.limit)}</span></div>
-        <div class="track"><i style="width:${Math.min(100, r * 100).toFixed(1)}%;background:var(--${st === "crit" ? "crit" : st === "warn" ? "warn" : "good"})"></i></div></button>`;
+        <div class="track"><i style="width:${Math.min(100, r * 100).toFixed(1)}%;background:var(--${st === "crit" ? "crit" : st === "warn" ? "warn" : "good"})"></i></div>${paceLine}</button>`;
       })
       .join("")}</div>
     <div class="note" style="margin-top:8px">누르면 그 달 지출 내역이 보여요. 예산은 설정 탭에서 바꿀 수 있어요.</div>`
@@ -4474,7 +4652,71 @@
         <span><i style="background:var(--invest)"></i>투자 평가액</span>
       </div>
     </div>
+    <div class="card rows" style="margin-top:14px">
+      <button class="row" id="yearReport" data-year="${ym.slice(0, 4)}"><span class="grow"><span class="nm">${ym.slice(0, 4)}년 리포트</span>
+        <span class="mm">한 해 수입·지출·저축률과 많이 쓴 곳을 한 장으로</span></span><span class="mm">›</span></button>
+    </div>
   </section>`;
+      }
+      /* 연간 리포트 — 고른 해의 달들을 합친다. 올해는 진행 중이라 작년 같은 기간과 비교한다. */
+      function yearSummary(y, uptoMonth) {
+        const t = { income: 0, net: 0, invest: 0, once: 0, saved: 0, months: 0, byCat: {}, perMonth: [] };
+        for (let m = 1; m <= (uptoMonth || 12); m++) {
+          const ym = y + "-" + String(m).padStart(2, "0");
+          if (!monthItems(ym).length) continue;
+          const s = summarize(ym);
+          t.income += s.income;
+          t.net += s.net;
+          t.invest += s.invest;
+          t.once += s.once;
+          t.saved += s.saved;
+          t.months++;
+          t.perMonth.push({ ym, net: s.net });
+          Object.entries(s.byCat).forEach(([c, v]) => (t.byCat[c] = (t.byCat[c] || 0) + v));
+        }
+        return t;
+      }
+      function openYearReport(y) {
+        const nowYm = ymOf(todayISO());
+        const live = y === nowYm.slice(0, 4);
+        const upto = live ? Number(nowYm.slice(5, 7)) : 12;
+        const t = yearSummary(y, upto),
+          p = yearSummary(String(Number(y) - 1), upto);
+        if (!t.months) {
+          toast(y + "년에는 기록이 없어요");
+          return;
+        }
+        const rate = t.income ? Math.round((t.saved / t.income) * 100) : null;
+        const prevRate = p.income ? Math.round((p.saved / p.income) * 100) : null;
+        const cmp = (a, b, goodUp) => {
+          if (!b) return "";
+          const d = a - b,
+            good = goodUp ? d >= 0 : d <= 0;
+          return `<span class="${good ? "good" : "bad"}">${d >= 0 ? "▲" : "▼"} ${shortWon(Math.abs(d))}</span>`;
+        };
+        const top = Object.entries(t.byCat).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        const topMax = top.length ? top[0][1] : 1;
+        const peak = t.perMonth.slice().sort((a, b) => b.net - a.net)[0];
+        const low = t.perMonth.slice().sort((a, b) => a.net - b.net)[0];
+        const basis = live ? `작년 1~${upto}월 대비` : `${Number(y) - 1}년 대비`;
+        openSheet(
+          `<h3>${y}년 리포트${live ? ` <span class="mm">1~${upto}월</span>` : ""}</h3>
+    <div class="yr-grid">
+      <div><span>수입</span><b style="color:var(--accent)">${won(t.income)}</b><small>${cmp(t.income, p.income, true)}</small></div>
+      <div><span>지출</span><b style="color:var(--expense)">${won(t.net)}</b><small>${cmp(t.net, p.net, false)}</small></div>
+      <div><span>저축 여력</span><b>${won(t.saved)}</b><small>${rate != null ? `저축률 ${rate}%` : ""}${prevRate != null && rate != null ? ` (${rate - prevRate >= 0 ? "+" : ""}${rate - prevRate}%p)` : ""}</small></div>
+      <div><span>투자로 보냄</span><b style="color:var(--invest)">${won(t.invest)}</b><small>${cmp(t.invest, p.invest, true)}</small></div>
+    </div>
+    <div class="note" style="margin:10px 0 16px">기록한 ${t.months}개월 기준 · 월평균 지출 <b>${won(Math.round(t.net / t.months))}</b>원${t.once ? ` · 일회성 ${won(t.once)}원` : ""}${p.months ? ` · 비교는 ${basis}` : ""}</div>
+    ${top.length ? `<h4 class="yr-h">많이 쓴 곳</h4><div class="yr-top">${top
+      .map(([cid, v]) => `<div class="n">${esc(catById(cid).name)}</div><div class="bar"><i style="width:${((v / topMax) * 100).toFixed(1)}%"></i></div><div class="v">${won(v)} <span class="mm">${t.net ? Math.round((v / t.net) * 100) : 0}%</span></div>`)
+      .join("")}</div>` : ""}
+    ${t.perMonth.length > 1 ? `<div class="note" style="margin-top:14px">가장 많이 쓴 달은 <b>${ymLabel(peak.ym)}</b>(${won(peak.net)}원), 가장 적게 쓴 달은 <b>${ymLabel(low.ym)}</b>(${won(low.net)}원)이에요.</div>` : ""}
+    <div class="stack" style="margin-top:16px"><button class="btn ghost" id="yr_close">닫기</button></div>`,
+          () => {
+            $("#yr_close").onclick = closeSheet;
+          },
+        );
       }
       function deltaText(a, b) {
         const d = a - b;
@@ -4648,6 +4890,83 @@
     <div class="note" style="margin:14px 0 30px">계좌별 금액은 구분 합계로만 남아요. 종목 목록은 월별 투자 기록을 저장한 달에만 보여요.</div>
   </section>`;
       }
+      /* 목표 자산 — 최근 최대 12개월 동안 늘어난 속도로 언제쯤 닿을지 어림한다.
+         자산 기록이 두 달 이상 없으면 최근 6개월 평균 저축 여력으로 대신한다. */
+      function goalPace(basis) {
+        const nowYm = ymOf(todayISO());
+        const cur = wealthAt(nowYm);
+        const val = (w) => (w && w.hasAssets ? (basis === "exReal" ? w.totalExReal : w.total) : null);
+        for (let k = 12; k >= 2; k--) {
+          const v = val(wealthAt(shiftYM(nowYm, -k)));
+          if (v != null) return { perMonth: (val(cur) - v) / k, months: k, from: "assets" };
+        }
+        const ms = [1, 2, 3, 4, 5, 6].map((k) => shiftYM(nowYm, -k)).filter((m) => monthItems(m).length);
+        if (!ms.length) return null;
+        return { perMonth: ms.reduce((a, m) => a + summarize(m).saved, 0) / ms.length, months: ms.length, from: "saved" };
+      }
+      function goalCard(t) {
+        const g = S.settings.goal;
+        if (!g || !(g.amount > 0))
+          return `<button class="goal empty-goal" id="goalEdit"><span class="grow"><b>목표 자산 정하기</b>
+        <span class="mm">목표를 정하면 지금 속도로 언제쯤 닿을지 알려 줘요</span></span><span class="mm">›</span></button>`;
+        const cur = g.basis === "exReal" ? t.totalExReal : t.total;
+        const r = Math.max(0, Math.min(1, cur / g.amount));
+        const left = g.amount - cur;
+        const pace = goalPace(g.basis);
+        let eta;
+        if (left <= 0) eta = "목표에 닿았어요! 새 목표를 정해 보세요.";
+        else if (!pace) eta = "기록이 쌓이면 언제쯤 닿을지 알려 드릴게요.";
+        else if (pace.perMonth <= 0)
+          eta = `최근 ${pace.months}개월은 ${pace.from === "assets" ? "자산이" : "저축 여력이"} 늘지 않았어요.`;
+        else {
+          const n = Math.ceil(left / pace.perMonth);
+          const when = shiftYM(ymOf(todayISO()), n);
+          eta = `최근 ${pace.months}개월 ${pace.from === "assets" ? "자산이" : "저축 여력이"} 월 <b>${shortWon(pace.perMonth)}</b>씩 늘었어요 →
+          ${n > 600 ? "50년 넘게 걸려요" : `약 <b>${n >= 12 ? Math.floor(n / 12) + "년 " + (n % 12 ? (n % 12) + "개월" : "") : n + "개월"}</b> 뒤 (${when.slice(0, 4)}년 ${Number(when.slice(5, 7))}월)`}`;
+        }
+        return `<button class="goal" id="goalEdit">
+      <div class="top"><span class="n">${g.label ? esc(g.label) : "목표 자산"} <span class="mm">${g.basis === "exReal" ? "부동산 제외" : "총순자산"}</span></span>
+        <span class="r"><b>${(r * 100).toFixed(1)}%</b> · ${shortWon(g.amount)}</span></div>
+      <div class="track"><i style="width:${(r * 100).toFixed(1)}%"></i></div>
+      <div class="s">${left > 0 ? `${shortWon(left)} 남았어요 · ` : ""}${eta}</div></button>`;
+      }
+      function openGoalSheet() {
+        const g = S.settings.goal || { amount: 0, basis: "total", label: "" };
+        openSheet(
+          `<h3>목표 자산</h3>
+    <div class="field"><label>이름 (선택)</label><input id="g_l" value="${esc(g.label || "")}" placeholder="예: 내 집 마련" maxlength="20"></div>
+    <div class="field"><label>목표 금액 (원)</label><input id="g_a" type="text" inputmode="numeric" value="${g.amount ? won(g.amount) : ""}" placeholder="예: 100,000,000"></div>
+    <div class="field"><label>기준</label><select id="g_b">
+      <option value="total" ${g.basis !== "exReal" ? "selected" : ""}>총순자산 (부동산 포함)</option>
+      <option value="exReal" ${g.basis === "exReal" ? "selected" : ""}>부동산 제외 순자산</option></select></div>
+    <div class="stack"><button class="btn" id="g_save">저장</button>
+    ${S.settings.goal ? `<button class="btn danger" id="g_del">목표 지우기</button>` : ""}</div>`,
+          () => {
+            const a = $("#g_a");
+            a.oninput = () => {
+              const d = a.value.replace(/[^0-9]/g, "").slice(0, 15);
+              a.value = d ? won(Number(d)) : "";
+            };
+            $("#g_save").onclick = () => {
+              const amount = Number(a.value.replace(/[^0-9]/g, "")) || 0;
+              if (!amount) return toast("목표 금액을 넣어 주세요");
+              S.settings.goal = { amount, basis: $("#g_b").value, label: $("#g_l").value.trim() };
+              persist("settings");
+              closeSheet();
+              render(true);
+              toast("목표를 저장했어요");
+            };
+            $("#g_del") &&
+              ($("#g_del").onclick = () => {
+                S.settings.goal = null;
+                persist("settings");
+                closeSheet();
+                render(true);
+                toast("목표를 지웠어요");
+              });
+          },
+        );
+      }
       function viewAssets() {
         const nowYm = ymOf(todayISO());
         if (UI.month !== nowYm) return viewAssetsAt(UI.month);
@@ -4688,6 +5007,7 @@
         <div class="d">${g.housing ? "청약 " + shortWon(g.housing) : "&nbsp;"}</div></div>
     </div>
 
+    ${goalCard(t)}
     ${assetTrend()}
     <div class="hstack" style="margin-top:16px">
       <button class="btn sm ghost" id="addAsset">＋ 계좌·자산 추가</button>
@@ -5333,6 +5653,7 @@
           wealth: ["MY PORTFOLIO", UI.wealth === "invest" ? "나의 투자 기록" : "자산의 현재", "계좌부터 보유 종목까지, 나의 자산을 한곳에."],
           settings: ["MAKE IT YOURS", "나에게 맞게", "자주 쓰는 기록과 동기화를 관리하세요."],
         }[UI.tab] || ["DAILY RECORD", "오늘의 기록", ""];
+        $("#main").dataset.tab = UI.tab;
         $("#main").innerHTML = `<header class="pagehead"><span class="eyebrow">${page[0]}</span><h1>${page[1]}</h1><p>${page[2]}</p></header>` + v();
         if (!keepScroll) window.scrollTo({ top: 0 });
         /* 넓은 화면에서만 자동 포커스 — 모바일에서 키패드가 멋대로 올라오지 않도록 */
@@ -6446,6 +6767,29 @@
         dirty.add("settings");
         return created;
       }
+      /* 같은 달에 추가할 때 이미 있는 기록(날짜·분류·금액·메모가 같은 것)은 건너뛴다.
+         같은 날 같은 커피를 두 번 산 것처럼 원래 겹치는 기록은 개수만큼만 센다. */
+      const itemKey = (it) => [it.d, it.c, it.a, (it.m || "").trim()].join("|");
+      function mergeImportItems(existing, incoming) {
+        const have = new Map();
+        (existing || []).forEach((it) => have.set(itemKey(it), (have.get(itemKey(it)) || 0) + 1));
+        const added = [];
+        let skipped = 0;
+        (incoming || []).forEach((it) => {
+          const k = itemKey(it), n = have.get(k) || 0;
+          if (n > 0) {
+            have.set(k, n - 1);
+            skipped++;
+          } else added.push(it);
+        });
+        return { items: (existing || []).concat(added), added: added.length, skipped };
+      }
+      function importDupCount(res) {
+        return Object.entries((res && res.months) || {}).reduce(
+          (n, [ym, d]) => n + mergeImportItems(monthItems(ym), d.items).skipped,
+          0,
+        );
+      }
       function openImport() {
         openSheet(
           `<h3>CSV 가져오기</h3>
@@ -6472,6 +6816,8 @@
                 return;
               }
               const rows = parseCSV(text);
+              /* 미리보기만 하는 것이니 읽으면서 새로 만든 분류는 되돌린다(실제 가져올 때 다시 만든다) */
+              const catCount = S.settings.cats.length;
               const kind = importPortfolio(rows)
                 ? "종목별 포트폴리오"
                 : importInvestMonthly(rows)
@@ -6485,8 +6831,11 @@
                 sniffDelim(text) === "\t"
                   ? "탭 구분(시트에서 복사)"
                   : "쉼표 구분(CSV 파일)";
+              const res = kind && (kind === "거래 목록" ? importFlat(rows) : kind.startsWith("가계부") ? importPivot(rows, Number($("#imp_y").value) || new Date().getFullYear()) : null);
+              const dup = res && $("#imp_m").value === "merge" ? importDupCount(res) : 0;
+              S.settings.cats.length = catCount;
               hint.innerHTML = kind
-                ? `<b style="color:var(--accent)">${kind}</b>로 읽었어요 · ${rows.length}줄 · ${d}`
+                ? `<b style="color:var(--accent)">${kind}</b>로 읽었어요 · ${rows.length}줄 · ${d}${dup ? `<br>이미 있는 기록 <b>${dup}건</b>은 건너뛰어요` : ""}`
                 : `<b style="color:var(--crit)">형식을 못 알아봤어요.</b> 머리글 행(맨 윗줄)까지 같이 복사했는지 확인해 주세요.`;
             };
             ta.oninput = () => {
@@ -6494,6 +6843,11 @@
               ta._t = setTimeout(sniff, 250);
             };
             ta.onpaste = () => setTimeout(sniff, 60);
+            $("#imp_m").onchange = sniff;
+            $("#imp_y").oninput = () => {
+              clearTimeout(ta._t);
+              ta._t = setTimeout(sniff, 250);
+            };
             $("#imp_go").onclick = () => {
               const text = $("#imp_t").value.trim();
               if (!text) return toast("내용을 붙여넣어 주세요");
@@ -6508,7 +6862,8 @@
                 );
               if (!res) return toast("형식을 못 읽었어요");
               const mode = $("#imp_m").value;
-              let n = 0;
+              let n = 0,
+                skipped = 0;
               if (res.holdings) {
                 Object.entries(res.holdings).forEach(([gid, hs]) => {
                   let a = S.assets.find((x) => x.group === gid);
@@ -6544,17 +6899,23 @@
                 recalcInvestmentMonths();
               }
               Object.entries(res.months || {}).forEach(([ym, d]) => {
-                if (mode === "replace" || !S.months[ym])
+                if (mode === "replace" || !S.months[ym]) {
+                  monthItems(ym).forEach((it) => deletedIds.add(it.id));
                   S.months[ym] = { items: d.items };
-                else S.months[ym].items = S.months[ym].items.concat(d.items);
-                n += d.items.length;
+                  n += d.items.length;
+                } else {
+                  const m = mergeImportItems(S.months[ym].items, d.items);
+                  S.months[ym].items = m.items;
+                  n += m.added;
+                  skipped += m.skipped;
+                }
                 dirty.add("month:" + ym);
               });
               dirty.add("settings");
               persist();
               closeSheet();
               render();
-              toast(n + "건 가져왔어요");
+              toast(n + "건 가져왔어요" + (skipped ? ` · 겹치는 ${skipped}건 건너뜀` : ""));
             };
           },
         );
@@ -6861,13 +7222,25 @@
         }
         if (d.filter) {
           UI.filter = d.filter;
-          render();
+          render(true);
+          return;
+        }
+        if (d.qscope) {
+          UI.qScope = d.qscope;
+          render(true);
+          return;
+        }
+        if (t.id === "listQClear") {
+          UI.q = "";
+          render(true);
+          const q = $("#listQ");
+          if (q) q.focus();
           return;
         }
         if (t.id === "exportMonth") {
           exportCSV(
-            monthItems(UI.month).map((i) => ({ ...i })),
-            "가계부_" + UI.month + ".csv",
+            (UI.q.trim() ? listItems() : monthItems(UI.month)).map((i) => ({ ...i })),
+            UI.q.trim() ? "가계부_검색_" + todayISO() + ".csv" : "가계부_" + UI.month + ".csv",
           );
           return;
         }
@@ -7045,6 +7418,14 @@
           if (t.id === "backupNow") render(true);
           return;
         }
+        if (t.id === "yearReport") {
+          openYearReport(d.year);
+          return;
+        }
+        if (t.id === "goalEdit") {
+          openGoalSheet();
+          return;
+        }
         if (t.id === "backupLater") {
           lsSet(BACKUP_SNOOZE_KEY, new Date(Date.now() + 7 * 86400000).toISOString());
           render(true);
@@ -7108,7 +7489,21 @@
           } else if (e.key === "Escape" && el.id === "amt") {
             e.preventDefault();
             setAmount(0);
+          } else if (e.key === "Escape" && el.id === "listQ") {
+            e.preventDefault();
+            UI.q = "";
+            render(true);
           }
+          return;
+        }
+        if (e.key === "/") {
+          e.preventDefault();
+          if (UI.tab !== "list") {
+            UI.tab = "list";
+            render();
+          }
+          const q = $("#listQ");
+          if (q) q.focus();
           return;
         }
 
@@ -7182,6 +7577,25 @@
       });
       document.addEventListener("input", (e) => {
         if (e.target.id === "memo") UI.memo = e.target.value;
+        if (e.target.id === "listQ") {
+          const had = !!UI.q.trim();
+          UI.q = e.target.value;
+          /* 검색을 시작하거나 끝낼 때만 범위 칩이 생기고 사라지므로 화면 전체를 다시 그린다 */
+          if (had !== !!UI.q.trim()) {
+            const pos = e.target.selectionStart;
+            render(true);
+            const q = $("#listQ");
+            if (q) {
+              q.focus();
+              try {
+                q.setSelectionRange(pos, pos);
+              } catch (err) {}
+            }
+          } else {
+            const box = $("#listBody");
+            if (box) box.innerHTML = listBodyHTML();
+          }
+        }
         if (e.target.id === "amt") {
           const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 10);
           UI.amount = digits ? Number(digits) : 0;
