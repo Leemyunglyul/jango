@@ -1,0 +1,19 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 단위 테스트
+        run: node --test tests/*.test.cjs
+      - name: Apps Script 문법 확인
+        run: node -e "new (require('vm').Script)(require('fs').readFileSync('apps-script/코드.gs','utf8'))"
