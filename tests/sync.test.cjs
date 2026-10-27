@@ -271,3 +271,62 @@ test('request timeout releases a stuck upload and keeps it available for retry',
   assert.deepEqual(h.json('[...dirty]'), ['settings']);
   assert.ok([...h.timers.values()].some(timer => timer.delay === 3000));
 });
+
+test('a save rejected because another device saved first merges both devices and re-uploads', async () => {
+  const h = harness();
+  h.run(`var toast = () => {};
+    S.months['2026-09'] = { items: [{ id: 'a', d: '2026-09-01', a: 100 }, { id: 'gone', d: '2026-09-02', a: 5 }] };
+    SYNC.seenRev = 10;`);
+  h.run(`removeItemForTest = () => { S.months['2026-09'].items = S.months['2026-09'].items.filter(i => i.id !== 'gone'); deletedIds.add('gone'); };
+    removeItemForTest();
+    S.months['2026-09'].items.push({ id: 'b', d: '2026-09-03', a: 200 }); persist('month:2026-09');`);
+  const remote = {
+    settings: { cats: [{ id: 'food' }], budgets: { food: 1 }, recurring: [], quick: [] },
+    months: {
+      '2026-09': { items: [{ id: 'a', d: '2026-09-01', a: 100 }, { id: 'gone', d: '2026-09-02', a: 5 }, { id: 'phone', d: '2026-09-04', a: 300 }] },
+      '2026-08': { items: [{ id: 'old', d: '2026-08-04', a: 7 }] },
+    },
+  };
+  let saves = 0;
+  h.ctx.gasCall = async (payload) => {
+    h.calls.push(structuredClone(payload));
+    if (payload.action === 'load') return { ok: true, rev: 12, data: structuredClone(remote) };
+    if (++saves === 1) {
+      const err = new Error('conflict'); err.conflict = true; err.rev = 12; throw err;
+    }
+    return { ok: true, rev: 13 };
+  };
+  await h.tick(1000);
+  const saveCalls = h.calls.filter(c => c.action === 'save');
+  assert.equal(saveCalls.length, 2);
+  assert.equal(saveCalls[0].baseRev, 10);
+  assert.equal(saveCalls[1].baseRev, 12);
+  const ids = h.json(`S.months['2026-09'].items.map(i => i.id)`).sort();
+  assert.deepEqual(ids, ['a', 'b', 'phone']);
+  assert.equal(h.run(`S.months['2026-08'].items.length`), 1);
+  assert.equal(h.run('S.settings.budgets.food'), 1);
+  assert.equal(h.run('SYNC.seenRev'), 13);
+  assert.equal(h.run('SYNC.state'), 'ok');
+});
+
+test('a month this device did not touch takes the other device\'s version', async () => {
+  const h = harness();
+  h.run(`var toast = () => {};
+    S.months['2026-08'] = { items: [{ id: 'x', d: '2026-08-01', a: 1 }] };
+    S.months['2026-09'] = { items: [] };
+    SYNC.seenRev = 3;
+    S.assets = [{ id: 'mine' }]; persist('assets');`);
+  h.ctx.gasCall = async (payload) => {
+    h.calls.push(structuredClone(payload));
+    if (payload.action === 'load')
+      return { ok: true, rev: 4, data: { settings: { cats: [{ id: 'food' }] }, assets: [{ id: 'theirs' }],
+        months: { '2026-08': { items: [{ id: 'y', d: '2026-08-02', a: 2 }] } } } };
+    if (h.calls.filter(c => c.action === 'save').length === 1) {
+      const err = new Error('conflict'); err.conflict = true; throw err;
+    }
+    return { ok: true, rev: 5 };
+  };
+  await h.tick(1000);
+  assert.deepEqual(h.json(`S.months['2026-08'].items.map(i => i.id)`), ['y']);
+  assert.equal(h.run('S.assets[0].id'), 'mine');
+});

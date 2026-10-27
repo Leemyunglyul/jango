@@ -9,7 +9,7 @@
  */
 
 /* 이 값을 앱이 확인한다. 코드를 갱신했는데 재배포를 안 하면 앱이 알아채고 알려준다. */
-var SCRIPT_VERSION = 7;
+var SCRIPT_VERSION = 8;
 
 var SH_HIST = "월별 자산";
 var SH_TX = "거래", SH_SET = "설정", SH_AS = "자산", SH_SNAP = "스냅샷", SH_INVEST = "월별 투자기록", SH_INVEST_SOURCE = "투자 월별 평가", SH_HOLD = "종목", SH_QUOTE = "_시세";
@@ -51,7 +51,9 @@ function handle(e) {
 
     var want = PropertiesService.getScriptProperties().getProperty("TOKEN");
     if (!want) return out({ ok: false, error: "스크립트 속성 TOKEN이 비어 있습니다. 설치 4단계를 확인하세요." });
-    if ((body.token || p.token || "") !== want) return out({ ok: false, error: "토큰이 일치하지 않습니다." });
+    /* v8: 토큰은 POST 본문으로만 받는다 — 주소(?token=)에 붙으면 방문 기록·로그에 남는다 */
+    if (p.token) return out({ ok: false, error: "토큰은 주소가 아니라 앱(POST)으로만 보내야 합니다." });
+    if ((body.token || "") !== want) return out({ ok: false, error: "토큰이 일치하지 않습니다." });
 
     var action = body.action || p.action || "load";
 
@@ -76,8 +78,15 @@ function handle(e) {
       var lock = LockService.getScriptLock();
       lock.waitLock(25000);
       try {
+        /* v8: 앱이 마지막으로 본 rev(baseRev)보다 시트가 앞서 있으면 다른 기기가 먼저 올린 것이다.
+           덮어쓰지 않고 돌려보내면 앱이 시트 내용과 합친 뒤 다시 올린다. */
+        var cur = getRev();
+        if (body.baseRev != null && Number(body.baseRev) < cur) {
+          return out({ ok: false, conflict: true, rev: cur, error: "다른 기기에서 먼저 저장했습니다." });
+        }
         writeParts(body.parts || {});
-        setRev(Number(body.rev) || (getRev() + 1));
+        /* rev는 절대 내려가지 않는다 */
+        setRev(Math.max(Number(body.rev) || 0, cur + 1));
       } finally {
         lock.releaseLock();
       }
