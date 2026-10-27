@@ -48,7 +48,6 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
     />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
       :root {
         --ground: #f5f4ee;
@@ -2898,12 +2897,16 @@
           localStorage.setItem(LSKEY, JSON.stringify({
             ...S,
             _pendingSync: [...new Set([...dirty, ...sheetInFlight])],
+            _deletedIds: [...deletedIds],
+            _seenRev: SYNC.seenRev,
           }));
         } catch (e) {}
       }
 
       const dirty = new Set();
       const sheetInFlight = new Set();
+      /* 이 기기에서 지운 거래 id — 아직 시트에 올리기 전이면 충돌 병합 때 되살리지 않는다 */
+      const deletedIds = new Set();
       let saveTimer = null;
       let retryDelay = 3000;
       function scheduleSave(delay = 1000) {
@@ -3018,6 +3021,9 @@
         ver: null,
         sheetName: "",
         stale: false,
+        /* 이 기기가 마지막으로 확인한 시트 rev. 저장할 때 같이 보내 다른 기기가 먼저 올렸는지 확인한다 */
+        seenRev: null,
+        conflicts: 0,
       };
 
       function loadSyncCfg() {
@@ -3103,7 +3109,17 @@
             "응답을 읽지 못했어요. 배포 URL이 /exec 로 끝나는지 확인해 주세요",
           );
         }
-        if (!j.ok) throw new Error(j.error || "알 수 없는 오류");
+        if (!j.ok) {
+          const err = new Error(j.error || "알 수 없는 오류");
+          if (j.conflict) {
+            err.conflict = true;
+            err.rev = Number(j.rev) || 0;
+          }
+          throw err;
+        }
+        /* 월 기록 삭제는 시트 rev를 하나 올린다. 이 기기가 올린 것이니 다음 저장이 충돌로 보지 않게 따라간다. */
+        if (payload.action === "deleteInvestMonth" && j.rev && SYNC.seenRev === j.rev - 1)
+          SYNC.seenRev = j.rev;
         return j;
       }
 
@@ -3300,11 +3316,16 @@
           const j = await gasCall({
             action: "save",
             rev: S.rev || 1,
+            baseRev: SYNC.seenRev,
             parts: buildParts(keys),
           });
           /* 응답을 기다리는 동안 사용자가 추가한 변경 번호를 되돌리지 않는다. */
           S.rev = Math.max(S.rev || 0, j.rev || 0);
+          if (j.rev) SYNC.seenRev = j.rev;
+          SYNC.conflicts = 0;
           sheetInFlight.clear();
+          /* 다 올라갔으면 지운 id는 더 기억할 필요가 없다 */
+          if (!dirty.size) deletedIds.clear();
           saveLocal();
           retryDelay = 3000;
           setSync(dirty.size ? "pending" : "ok", Date.now());
@@ -3313,6 +3334,11 @@
           keys.forEach((k) => dirty.add(k));
           sheetInFlight.clear();
           saveLocal();
+          if (e.conflict && SYNC.conflicts < 3) {
+            SYNC.conflicts++;
+            SYNC.busy = false;
+            return resolveConflict();
+          }
           setSync(navigator.onLine === false ? "offline" : "err");
           console.warn("시트 저장 실패:", e.message);
           retrySync();
@@ -3322,6 +3348,89 @@
           /* 기존 디바운스가 전송 도중 실행됐더라도 다음 묶음을 반드시 보낸다. */
           if (dirty.size && SYNC.state === "pending") scheduleSave(0);
         }
+      }
+
+      /* 다른 기기가 먼저 올렸다: 시트를 다시 읽어 이 기기의 미전송 변경을 얹은 뒤 다시 올린다. */
+      async function resolveConflict() {
+        SYNC.busy = true;
+        setSync("busy");
+        try {
+          const j = await gasCall({ action: "load" });
+          if (!mergeConflict(j.data, j.rev || 0, Array.from(dirty)))
+            throw new Error("시트 내용을 읽지 못했어요");
+          SYNC.seenRev = j.rev || 0;
+          saveLocal();
+          render();
+          toast("다른 기기의 기록과 합쳤어요");
+        } catch (e) {
+          SYNC.busy = false;
+          setSync(navigator.onLine === false ? "offline" : "err");
+          console.warn("충돌 병합 실패:", e.message);
+          retrySync();
+          return false;
+        }
+        SYNC.busy = false;
+        return pushSheet();
+      }
+      /* 시트(d) 위에 이 기기에서 아직 못 올린 변경(keys)을 얹는다.
+         - 거래: 이 기기에서 고친 달은 내 기록 + 시트에만 있는 기록(내가 지우지 않은 것),
+                 고치지 않은 달은 시트 그대로(내가 다른 달로 옮긴 기록만 뺀다)
+         - 설정·자산·월별 투자기록: 이 기기에서 고친 것만 내 값, 나머지는 시트 값 */
+      function mergeConflict(d, serverRev, keys) {
+        if (!d || !d.settings) return false;
+        const has = (k) => keys.includes(k);
+        const dirtyYm = new Set(keys.filter((k) => k.startsWith("month:")).map((k) => k.slice(6)));
+        const everyMonth = dirtyYm.has("*");
+        const mineSettings = has("settings") || has("rec");
+        const keep = {
+          settings: mineSettings ? structuredClone(S.settings) : null,
+          rec: mineSettings ? structuredClone(S.rec || {}) : null,
+          assets: has("assets") ? structuredClone(S.assets) : null,
+          investAll: has("investMonths") ? structuredClone(S.investMonths) : null,
+          invest: {},
+          months: structuredClone(S.months || {}),
+        };
+        keys.filter((k) => k.startsWith("investMonth:")).forEach((k) => {
+          const ym = k.slice("investMonth:".length);
+          if (S.investMonths[ym]) keep.invest[ym] = structuredClone(S.investMonths[ym]);
+        });
+        const hadMonths = !!d.months;
+        if (!adoptRemote(d, serverRev)) return false;
+        const theirsAll = hadMonths ? S.months : {};
+        const localIds = new Set(),
+          editedIds = new Set();
+        Object.entries(keep.months).forEach(([ym, m]) =>
+          ((m && m.items) || []).forEach((it) => {
+            localIds.add(it.id);
+            if (everyMonth || dirtyYm.has(ym)) editedIds.add(it.id);
+          }),
+        );
+        const out = {};
+        new Set([...Object.keys(keep.months), ...Object.keys(theirsAll)]).forEach((ym) => {
+          const mine = (keep.months[ym] && keep.months[ym].items) || [];
+          const theirs = (theirsAll[ym] && theirsAll[ym].items) || [];
+          const items =
+            everyMonth || dirtyYm.has(ym) || !hadMonths
+              ? mine.concat(theirs.filter((it) => !localIds.has(it.id) && !deletedIds.has(it.id)))
+              : theirs.filter((it) => !editedIds.has(it.id) && !deletedIds.has(it.id));
+          if (items.length || theirsAll[ym])
+            out[ym] = { ...(theirsAll[ym] || keep.months[ym] || {}), items };
+        });
+        S.months = out;
+        if (keep.settings) {
+          keep.settings.history = { ...(S.settings.history || {}), ...(keep.settings.history || {}) };
+          S.settings = keep.settings;
+          S.rec = keep.rec;
+        }
+        if (keep.assets) S.assets = keep.assets;
+        if (keep.investAll) S.investMonths = keep.investAll;
+        Object.assign(S.investMonths, keep.invest);
+        recalcInvestmentMonths();
+        normalizeLedgerKinds();
+        keys.forEach((k) => dirty.add(k));
+        S.rev = Math.max(S.rev || 0, serverRev) + 1;
+        saveLocal();
+        return true;
       }
 
       function pushMessage(ok) {
@@ -3413,6 +3522,18 @@
           /* 로컬에 아직 못 올린 변경이 있으면 같은 달의 로컬 값을 지키고,
              시트에만 있는 과거 달만 보충한다. */
           const hasPending = dirty.size > 0;
+          /* 꺼져 있는 동안 다른 기기가 시트를 바꿨는데 이 기기에도 못 올린 변경이 있다 → 합친다 */
+          if (hasPending && SYNC.seenRev != null && serverRev > SYNC.seenRev &&
+              mergeConflict(j.data, serverRev, Array.from(dirty))) {
+            SYNC.seenRev = serverRev;
+            SYNC.ready = true;
+            retryDelay = 3000;
+            saveLocal();
+            render();
+            toast("다른 기기의 기록과 합쳤어요");
+            setSync("pending");
+            return true;
+          }
           let changed = mergeRemoteInvestMonths(j.data, hasPending || localRev > serverRev);
           /* 시트를 직접 편집하면 REV가 오르지 않는다. 같을 때도 다시 채택해야
              앱 시작 시 수동으로 고친 시트 내용이 즉시 반영된다. */
@@ -3425,6 +3546,7 @@
           /* v7 백엔드로 바꾼 직후: 설정 셀에 남은 예전 월별 자산을 '월별 자산' 탭으로 옮기고 셀은 비운다 */
           if (sheetV7() && j.data && j.data.settings && j.data.settings.history) dirty.add("settings");
           S.rev = Math.max(S.rev || 0, serverRev);
+          SYNC.seenRev = serverRev;
           saveLocal();
           SYNC.ready = true;
           retryDelay = 3000;
@@ -5010,7 +5132,7 @@
       <button class="row" id="addQuick" style="color:var(--ink2)"><span class="grow">＋ 퀵버튼 추가</span></button>
     </div>
     `],
-          [(SYNC.url ? 5 : 1) + 0.75 + 0.5 + (SYNC.stale || (SYNC.url && SYNC.ver && SYNC.ver < 7) ? 1.5 : 0), `
+          [(SYNC.url ? 5 : 1) + 0.75 + 0.5 + (SYNC.stale || (SYNC.url && SYNC.ver && SYNC.ver < 8) ? 1.5 : 0), `
     <h2 class="sec">동기화</h2>
     ${SYNC.url ? '<div class="note" style="margin-bottom:10px">자동 업로드가 켜져 있어요. 변경 후 약 1초 뒤 시트에 전송하며, 실패한 변경은 보관했다가 다시 시도해요.</div>' : ""}
     <div class="card rows">
@@ -5041,10 +5163,10 @@
       <div><div class="t">시트 백엔드가 구버전이에요 (v${SYNC.ver})</div>
       <div class="s">무료 시세·환율 기능을 쓰려면 <b>코드.gs</b>를 다시 붙여넣고
         배포 관리 → 연필 → 버전: <b>새 버전</b> → 배포 하세요.</div></div></div>`
-        : SYNC.url && SYNC.ver && SYNC.ver < 7
+        : SYNC.url && SYNC.ver && SYNC.ver < 8
           ? `<div class="banner" style="margin-top:10px">
-      <div><div class="t">장기 보관용 백엔드 v7이 나왔어요 (지금 v${SYNC.ver})</div>
-      <div class="s">월별 자산을 전용 탭에 한 달 한 줄로 쌓고, 거래는 바뀐 달만 올려서 몇 년이 지나도 저장이 느려지지 않아요.
+      <div><div class="t">새 시트 백엔드 v8이 나왔어요 (지금 v${SYNC.ver})</div>
+      <div class="s">${SYNC.ver < 7 ? "월별 자산을 전용 탭에 한 달 한 줄로 쌓고, 거래는 바뀐 달만 올려서 몇 년이 지나도 저장이 느려지지 않아요. " : ""}폰과 PC에서 거의 동시에 저장해도 한쪽 기록이 덮어써지지 않고 합쳐져요.
         <b>코드.gs</b>를 다시 붙여넣고 배포 관리 → 연필 → 버전: <b>새 버전</b> → 배포 하세요. 지금도 동기화는 정상이에요.</div></div></div>`
           : ""
     }
@@ -5196,6 +5318,7 @@
         const gone = S.months[ym].items.find((i) => i.id === id);
         const before = ledgerInvest(ym);
         S.months[ym].items = S.months[ym].items.filter((i) => i.id !== id);
+        if (gone) deletedIds.add(id);
         persist("month:" + ym);
         if (gone && gone.k === "inv") followLedgerInvest(ym, before);
       }
@@ -6402,9 +6525,35 @@
       function exportCSV(items, name) {
         offer(name, itemsCSV(items));
       }
-      function exportXlsx() {
-        if (typeof XLSX === "undefined")
-          return toast("엑셀 모듈을 불러오지 못했어요");
+      /* 엑셀 모듈은 내보낼 때만 불러온다 — 첫 화면을 막지 않게 */
+      const XLSX_SRC =
+        "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      let xlsxLoading = null;
+      function loadXlsx() {
+        if (typeof XLSX !== "undefined") return Promise.resolve();
+        if (!xlsxLoading)
+          xlsxLoading = new Promise((ok, fail) => {
+            const sc = document.createElement("script");
+            sc.src = XLSX_SRC;
+            sc.onload = ok;
+            sc.onerror = () => {
+              xlsxLoading = null;
+              sc.remove();
+              fail(new Error("xlsx"));
+            };
+            document.head.appendChild(sc);
+          });
+        return xlsxLoading;
+      }
+      async function exportXlsx() {
+        if (typeof XLSX === "undefined") {
+          toast("엑셀 모듈을 불러오는 중…");
+          try {
+            await loadXlsx();
+          } catch (e) {
+            return toast("엑셀 모듈을 불러오지 못했어요");
+          }
+        }
         const items = allItems();
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(
@@ -6737,6 +6886,8 @@
                 return;
               }
               if (adoptRemote(j.data, j.rev)) {
+                SYNC.seenRev = j.rev || 0;
+                saveLocal();
                 render();
                 toast("시트에서 내려받았어요");
                 setSync("ok", Date.now());
@@ -7215,6 +7366,8 @@
                   SYNC.url = url;
                   SYNC.token = token;
                   SYNC.ready = true;
+                  /* 새 시트: 아직 본 rev가 없으니 첫 저장은 충돌 검사 없이 올라간다 */
+                  SYNC.seenRev = null;
                   saveSyncCfg();
                 };
                 if (!hasRemote) {
@@ -7240,6 +7393,8 @@
                     dirty.clear();
                     useConnection();
                     adoptRemote(remote, load.rev);
+                    SYNC.seenRev = load.rev || 0;
+                    saveLocal();
                     setSync("ok", Date.now());
                     closeSheet();
                     render();
@@ -7331,6 +7486,10 @@
       if (Array.isArray(S._pendingSync))
         S._pendingSync.filter((k) => typeof k === "string").forEach((k) => dirty.add(k));
       delete S._pendingSync;
+      if (Array.isArray(S._deletedIds)) S._deletedIds.forEach((id) => deletedIds.add(id));
+      delete S._deletedIds;
+      if (typeof S._seenRev === "number") SYNC.seenRev = S._seenRev;
+      delete S._seenRev;
       if (!S.settings.quick) S.settings.quick = SEED_SETTINGS.quick;
       if (!S.investMonths)
         S.investMonths = structuredClone(S.snaps || {});

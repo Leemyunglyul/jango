@@ -27,7 +27,8 @@ icon-*.png              아이콘
 apps-script/코드.gs     구글 시트 백엔드 (선택)
 README-시트연결.md      ↑ 설치 안내 — 동기화를 쓰려면 여기부터
 README-배포.md          GitHub에 올리고 주소 만드는 법
-build.py                아티팩트용 소스 → 정적 index.html 빌드 스크립트
+tests/                  node --test 로 돌리는 단위 테스트
+.github/workflows/      PR·푸시마다 테스트 실행 (CI)
 .nojekyll               GitHub Pages가 파일을 그대로 서빙하게
 .gitignore              가계부 백업 파일이 실수로 커밋되는 걸 막음
 ```

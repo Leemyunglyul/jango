@@ -1,7 +1,8 @@
 /* 잔고와 흐름 — 오프라인 캐시.
    앱 파일만 캐시하고, 데이터는 건드리지 않는다(데이터는 localStorage/외부 DB). */
-const CACHE = "jango-v17";
-const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
+/* 앱 파일을 바꿔 배포할 때 숫자를 올린다(옛 캐시 정리용). 화면은 network-first라 올리지 않아도 새 버전이 뜬다. */
+const CACHE = "jango-v18";
+const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
