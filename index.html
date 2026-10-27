@@ -4475,11 +4475,11 @@
     <div class="searchbar">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
       <input id="listQ" type="search" placeholder="메모·분류·금액 검색" aria-label="내역 검색" autocomplete="off" enterkeyhint="search" value="${esc(UI.q)}">
-      ${UI.q ? `<button id="listQClear" aria-label="검색어 지우기" title="지우기">×</button>` : ""}
+      <button id="listQClear" aria-label="검색어 지우기" title="지우기"${UI.q ? "" : " hidden"}>×</button>
     </div>
-    ${UI.q.trim() ? `<div class="hstack scopes" role="group" aria-label="검색 범위">${Q_SCOPES.map(
+    <div class="hstack scopes" id="listScopes" role="group" aria-label="검색 범위"${UI.q.trim() ? "" : " hidden"}>${Q_SCOPES.map(
       ([k, n]) => `<button class="quick" data-qscope="${k}" aria-pressed="${UI.qScope === k}">${n}</button>`,
-    ).join("")}</div>` : ""}
+    ).join("")}</div>
    <div class="cols cols-list${UI.q.trim() ? " searching" : ""}">
     <div class="colB">
     <div class="tiles">
@@ -7578,23 +7578,22 @@
       document.addEventListener("input", (e) => {
         if (e.target.id === "memo") UI.memo = e.target.value;
         if (e.target.id === "listQ") {
-          const had = !!UI.q.trim();
           UI.q = e.target.value;
-          /* 검색을 시작하거나 끝낼 때만 범위 칩이 생기고 사라지므로 화면 전체를 다시 그린다 */
-          if (had !== !!UI.q.trim()) {
-            const pos = e.target.selectionStart;
-            render(true);
-            const q = $("#listQ");
-            if (q) {
-              q.focus();
-              try {
-                q.setSelectionRange(pos, pos);
-              } catch (err) {}
-            }
-          } else {
-            const box = $("#listBody");
-            if (box) box.innerHTML = listBodyHTML();
-          }
+          /* 검색창은 다시 그리지 않는다 — 입력칸을 새로 만들면 한글 조합(ㄱ+ㅏ→가)이 끊긴다.
+             주변 칩·버튼만 보이고 숨기고 결과 목록만 바꾼다. */
+          const on = !!UI.q.trim();
+          const toggle = (sel, show) => {
+            const el = $(sel);
+            if (el) el.hidden = !show;
+          };
+          toggle("#listQClear", !!UI.q);
+          toggle("#listScopes", on);
+          const cols = $(".cols-list");
+          if (cols) cols.classList.toggle("searching", on);
+          const ex = $("#exportMonth");
+          if (ex) ex.textContent = on ? "결과 CSV" : "이 달 CSV";
+          const box = $("#listBody");
+          if (box) box.innerHTML = listBodyHTML();
         }
         if (e.target.id === "amt") {
           const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 10);
